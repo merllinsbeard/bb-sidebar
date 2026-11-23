@@ -124,6 +124,14 @@ export function ThreadBehaviorSettings({
           />
         ) : null}
       </SettingsGroup>
+      <SettingsGroup title="Sections">
+        <SwitchRow
+          title="Auto-classify thread sections"
+          description="Assigns unsorted top-level threads to a matching section automatically when a turn finishes."
+          checked={draft.autoClassifySections}
+          onChange={(checked) => update("autoClassifySections", checked)}
+        />
+      </SettingsGroup>
     </SettingsSection>
   );
 }

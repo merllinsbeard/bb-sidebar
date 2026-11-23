@@ -36,6 +36,8 @@ export interface SidebarSettingsValues {
   autoArchiveAfterDays: number;
   /** Count time settled before the rule was turned on. Off: every wait starts at turn-on at the earliest. */
   autoArchiveIncludeSettled: boolean;
+  /** Automatically assign unsorted top-level threads to a matching section on idle. */
+  autoClassifySections: boolean;
   childSortField: ChildThreadSortField;
   childSortDirection: ChildThreadSortDirection;
   childIconStyle: ChildThreadIconStyle;
@@ -73,6 +75,7 @@ export const DEFAULT_SIDEBAR_SETTINGS: SidebarSettingsValues = {
   autoArchiveSettled: false,
   autoArchiveAfterDays: DEFAULT_AUTO_ARCHIVE_AFTER_DAYS,
   autoArchiveIncludeSettled: false,
+  autoClassifySections: true,
   childSortField: "created",
   childSortDirection: "descending",
   childIconStyle: "provider",

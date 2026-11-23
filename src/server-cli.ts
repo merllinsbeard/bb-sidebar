@@ -4,6 +4,7 @@ import type { ServerHandlers } from "./server-context";
 import type { ThreadRecoveryState } from "./contract";
 import { limitOf } from "./rate-limit-labels";
 import type { createServerLifecycle } from "./server-lifecycle";
+import type { ClassifyThreadOptions, SectionClassificationResult } from "./server-auto-section";
 import {
   configuredSnoozePresetError,
   formatSnoozeWakeTime,
@@ -76,10 +77,16 @@ function parseWake(value: string, now = new Date()): number {
 /** The sidebar's provider-limit state for these threads, as its rows read it. */
 type ThreadLimits = (input: { keys: string[] }) => Promise<Record<string, ThreadRecoveryState | null>>;
 
+type ClassifyThreadSection = (
+  threadId: string,
+  options?: ClassifyThreadOptions,
+) => Promise<SectionClassificationResult>;
+
 export function createServerCli(
   lifecycle: ReturnType<typeof createServerLifecycle>,
   handlers: CliHandlers,
   threadLimits: ThreadLimits,
+  classifyThreadSection: ClassifyThreadSection,
 ) {
   const { loadPolicyThreads, readOne, threadSignals } = lifecycle;
 
@@ -280,6 +287,92 @@ export function createServerCli(
             const moved = parentThreadId ? `moved ${threadId} under ${parentThreadId}` : `made ${threadId} top-level`;
             return "unpinFailed" in result && result.unpinFailed ? `${moved}; it is still pinned` : moved;
           });
+        },
+      }),
+      classify: cliCommand({
+        summary: "Assign a native section to a thread or bulk-classify unsorted threads",
+        options: {
+          ...threadOption,
+          all: { type: "boolean", description: "Classify visible top-level unsorted threads across projects" },
+          limit: {
+            type: "integer",
+            min: 1,
+            max: 500,
+            default: 20,
+            description: "Maximum threads to classify with --all (1-500)",
+          },
+          "dry-run": { type: "boolean", description: "Compute section matches without updating threads" },
+          force: { type: "boolean", description: "Classify even when a thread already has a section" },
+          json: { type: "boolean", description: "Emit JSON classification results" },
+        },
+        async run({ options }, ctx) {
+          if (options.all && options.thread) {
+            throw new PluginCliError("Use --thread or --all, not both", {
+              code: "invalid_value",
+              hint: "bb sidebar classify --thread <id> or bb sidebar classify --all",
+            });
+          }
+          const dryRun = options["dry-run"] === true;
+          const force = options.force === true;
+          const targetIds = options.all
+            ? (await loadPolicyThreads())
+                .filter(
+                  (thread) =>
+                    thread.parentThreadId === null &&
+                    thread.visibility === "visible" &&
+                    thread.archivedAt === null &&
+                    thread.deletedAt === null &&
+                    (force || thread.sectionId === null),
+                )
+                .sort(
+                  (left, right) => right.latestAttentionAt - left.latestAttentionAt || left.id.localeCompare(right.id),
+                )
+                .slice(0, options.limit)
+                .map((thread) => thread.id)
+            : [targetThread(options.thread, ctx)];
+
+          const results: SectionClassificationResult[] = [];
+          for (const threadId of targetIds) {
+            try {
+              results.push(await classifyThreadSection(threadId, { dryRun, force }));
+            } catch (error) {
+              if (!options.all) {
+                throw new PluginCliError(error instanceof Error ? error.message : String(error), {
+                  code: "action_failed",
+                });
+              }
+              results.push({
+                threadId,
+                status: "skipped",
+                reason: error instanceof Error ? error.message : String(error),
+                section: null,
+              });
+            }
+          }
+
+          if (options.json) {
+            const assigned = results.filter((row) => row.status === "assigned" || row.status === "matched_dry_run");
+            const unmatched = results.filter((row) => row.status === "unmatched");
+            const skipped = results.filter((row) => row.status === "skipped");
+            return {
+              exitCode: 0,
+              stdout: `${JSON.stringify({
+                results,
+                assigned: assigned.length,
+                unmatched: unmatched.length,
+                skipped: skipped.length,
+              })}\n`,
+            };
+          }
+
+          if (results.length === 0) return { exitCode: 0, stdout: "No threads to classify\n" };
+          const lines = results.map((row) => {
+            const detail = row.section
+              ? `${row.section.name}${row.method ? ` (${row.method})` : ""}`
+              : (row.reason ?? "none");
+            return `${row.threadId}\t${row.status}\t${detail}`;
+          });
+          return { exitCode: 0, stdout: `${lines.join("\n")}\n` };
         },
       }),
     },

@@ -21,6 +21,7 @@ import { createServerRateLimits } from "./server-rate-limits";
 import { createServerSideChats } from "./server-side-chats";
 import { createServerCli } from "./server-cli";
 import { AUTO_ARCHIVE_MIGRATION, AUTO_ARCHIVE_RULE_MIGRATION, createServerAutoArchive } from "./server-auto-archive";
+import { AUTO_SECTION_MIGRATION, createServerAutoSection } from "./server-auto-section";
 
 export type { StoredLifecycleRow } from "./server-lifecycle";
 
@@ -118,6 +119,7 @@ const migrations = [
   ...INSTALL_DEFAULTS_MIGRATIONS,
   AUTO_ARCHIVE_MIGRATION,
   AUTO_ARCHIVE_RULE_MIGRATION,
+  AUTO_SECTION_MIGRATION,
 ];
 
 export default async function plugin(bb: BbPluginApi) {
@@ -187,10 +189,13 @@ export default async function plugin(bb: BbPluginApi) {
   ctx.bb.background.schedule("auto-archive", "23 4 * * *", async () => {
     await autoArchive.archiveSettledThreads();
   });
+  const autoSection = createServerAutoSection(ctx, settings);
   const rateLimits = createServerRateLimits(ctx, lifecycle);
   const sideChats = createServerSideChats(ctx, lifecycle);
   ctx.bb.rpc.register(bbSidebarRpcContract, { ...handlers, ...rateLimits, ...sideChats });
-  ctx.bb.cli.register(createServerCli(lifecycle, handlers, rateLimits.getThreadLimits));
+  ctx.bb.cli.register(
+    createServerCli(lifecycle, handlers, rateLimits.getThreadLimits, autoSection.classifyThreadSection),
+  );
   // New or resumed child work reopens the ancestor path, keeping its existing
   // sidebar nesting reachable. Siblings retain their own settled state.
   ctx.bb.events.on("thread.created", async ({ thread }) => {
