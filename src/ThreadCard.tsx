@@ -27,7 +27,8 @@ import { CompactStatusOrTime } from "./StatusGlyph";
 import { threadDisplayTitle } from "./inbox";
 import { InlineThreadTitle } from "./InlineThreadTitle";
 import { isWorkingTree } from "./working-tree";
-import { ProjectFavicon, ProjectStripe } from "./ProjectFavicon";
+import { ProjectStripe } from "./ProjectFavicon";
+import { CardProjectHeader } from "./SectionBadge";
 import { useProjectColor } from "./ProjectColors";
 import { OpenPortsIndicator } from "./OpenPorts";
 import { useInboxEnvironment, useInboxActions, useInboxActivity } from "./InboxContext";
@@ -99,6 +100,8 @@ export function ThreadCard({
     projectNameById,
     personalProjectIds,
     hasMultipleHosts,
+    sectionById,
+    sectionColorById,
     projectIconRevision,
     snoozePresets,
     childrenByParentId: childrenByParent,
@@ -109,7 +112,9 @@ export function ThreadCard({
   const provider = providerById.get(thread.providerId) ?? null;
   const projectName = projectNameById.get(thread.projectId) ?? null;
   const isPersonalProject = personalProjectIds.has(thread.projectId);
-  const showProjectRow = showProject && !isPersonalProject;
+  const section = thread.sectionId ? (sectionById.get(thread.sectionId) ?? null) : null;
+  const sectionColor = section ? sectionColorById.get(section.id) : undefined;
+  const showProjectRow = showProject && (!isPersonalProject || section !== null);
   const projectIconUrl = iconUrl(thread.projectId, projectIconRevision);
   const onPark = () => parkThread(thread);
   const onSettle = () => settleThread(thread);
@@ -272,11 +277,13 @@ export function ThreadCard({
             <CompactRow
               thread={thread}
               tone="normal"
-              showProject={showProjectRow}
+              showProject={showProject && !isPersonalProject}
               projectIconOnly={projectIconOnly}
               projectName={projectName}
               projectIconUrl={projectIconUrl}
               projectColor={projectColor}
+              sectionName={section?.name ?? null}
+              sectionColor={sectionColor}
               label={threadDisplayTitle(thread)}
               isActive={isActive}
               isSplitOpen={layout !== null}
@@ -345,7 +352,9 @@ export function ThreadCard({
               )}
             >
               {isSettling ? <span aria-hidden="true" className="bb-sidebar-settle-sweep" /> : null}
-              {showProjectRow && projectName ? <ProjectStripe projectId={thread.projectId} view={stripeView} /> : null}
+              {showProject && !isPersonalProject && projectName ? (
+                <ProjectStripe projectId={thread.projectId} view={stripeView} />
+              ) : null}
               <ThreadDetailsTooltip thread={thread} disabled={isRenaming || !!reorder?.isDragging}>
                 <a
                   // Both attributes, or bb's nine thread shortcuts stop finding rows.
@@ -384,25 +393,15 @@ export function ThreadCard({
               </ThreadDetailsTooltip>
               <div className="pointer-events-none relative flex h-5 min-w-0 items-center gap-1.5">
                 {showProjectRow ? (
-                  <span
-                    data-settle-fade=""
-                    className="flex min-w-0 flex-1 items-center gap-1.5 text-2xs font-medium text-muted-foreground"
-                  >
-                    {projectName ? (
-                      <ProjectFavicon
-                        projectId={thread.projectId}
-                        src={projectIconUrl}
-                        name={projectName}
-                        className="size-3"
-                      />
-                    ) : null}
-                    <span
-                      style={projectColor}
-                      className={cn("min-w-0 truncate", projectColor && "bb-sidebar-project-name")}
-                    >
-                      {projectName ?? " "}
-                    </span>
-                  </span>
+                  <CardProjectHeader
+                    projectId={thread.projectId}
+                    projectName={projectName}
+                    projectIconUrl={projectIconUrl}
+                    projectColor={projectColor}
+                    isPersonal={isPersonalProject}
+                    sectionName={section?.name ?? null}
+                    sectionColor={sectionColor}
+                  />
                 ) : (
                   titleLine
                 )}

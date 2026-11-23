@@ -41,8 +41,16 @@ export const SlimRow = memo(function SlimRow({
   now: number;
   childrenExpanded: boolean;
 }) {
-  const { projectNameById, personalProjectIds, projectIconRevision, snoozePresets, lifecycle, childrenByParentId } =
-    useInboxEnvironment();
+  const {
+    projectNameById,
+    personalProjectIds,
+    sectionById,
+    sectionColorById,
+    projectIconRevision,
+    snoozePresets,
+    lifecycle,
+    childrenByParentId,
+  } = useInboxEnvironment();
   const { onNavigate, parkThread, settleThread, snoozeThread, toggleChildExpansion } = useInboxActions();
   const { activeThreadId } = useInboxActivity();
   const childThreads = childrenByParentId.get(thread.id) ?? [];
@@ -58,6 +66,8 @@ export const SlimRow = memo(function SlimRow({
   const canShelve = !useRowStatusRuns(thread.id);
   const projectName = projectNameById.get(thread.projectId) ?? null;
   const showProject = !personalProjectIds.has(thread.projectId);
+  const section = thread.sectionId ? (sectionById.get(thread.sectionId) ?? null) : null;
+  const sectionColor = section ? sectionColorById.get(section.id) : undefined;
   const projectIconUrl = iconUrl(thread.projectId, projectIconRevision);
   const onPark = () => parkThread(thread);
   const onSettle = () => settleThread(thread);
@@ -71,7 +81,8 @@ export const SlimRow = memo(function SlimRow({
   const projectColor = useProjectColor(thread.projectId);
   const shortcut = useSidebarThreadShortcut(thread.id);
   const title = threadDisplayTitle(thread);
-  const rowLabel = showProject && projectName ? `${projectName} · ${title}` : title;
+  const labelPrefix = showProject ? projectName : (section?.name ?? null);
+  const rowLabel = labelPrefix ? `${labelPrefix} · ${title}` : title;
   const [isRenaming, setIsRenaming] = useState(false);
   const limit = useStatusLimit(thread);
 
@@ -96,6 +107,8 @@ export const SlimRow = memo(function SlimRow({
           projectName={projectName}
           projectIconUrl={projectIconUrl}
           projectColor={projectColor}
+          sectionName={section?.name ?? null}
+          sectionColor={sectionColor}
           label={rowLabel}
           isActive={isActive}
           isRenaming={isRenaming}

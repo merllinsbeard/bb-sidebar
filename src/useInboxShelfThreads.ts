@@ -13,6 +13,7 @@ import { activeRepresentativeThreadId } from "./inbox-layout";
 import { isInactiveThread } from "./inactive";
 import { isWorkingTree } from "./working-tree";
 import { threadNeedsAttention, threadsWithAskingDescendants } from "./child-status";
+import { matchesSectionFilter, type SectionFilter } from "./section-colors";
 import { useWorkingForDisplay } from "./StatusSlot";
 
 interface InboxShelfThreadsOptions {
@@ -23,6 +24,7 @@ interface InboxShelfThreadsOptions {
   now: number;
   renamingShelfLocks: ReadonlyMap<string, "active" | "working" | "inactive">;
   scope: readonly string[];
+  sectionFilter?: SectionFilter;
   threads: readonly PluginSidebarThread[];
   workingShelfEnabled: boolean;
 }
@@ -35,13 +37,14 @@ export function useInboxShelfThreads({
   now,
   renamingShelfLocks,
   scope,
+  sectionFilter = null,
   threads,
   workingShelfEnabled,
 }: InboxShelfThreadsOptions) {
   const isWorking = useWorkingForDisplay();
   return useMemo(() => {
     const allVisible = visibleInboxThreads(threads);
-    const scoped = filterByProjects(allVisible, scope);
+    const scoped = filterByProjects(allVisible, scope).filter((thread) => matchesSectionFilter(thread, sectionFilter));
     // Children are listed inside their parent's row instead of the flat list;
     // an orphan whose parent is not on screen stays here.
     const visible = hideChildrenOfVisibleParents(scoped);
@@ -122,6 +125,7 @@ export function useInboxShelfThreads({
     now,
     renamingShelfLocks,
     scope,
+    sectionFilter,
     threads,
     workingShelfEnabled,
   ]);
