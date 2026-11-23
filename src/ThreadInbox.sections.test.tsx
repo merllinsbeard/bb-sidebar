@@ -151,4 +151,33 @@ describe("thread sections", () => {
       }),
     );
   });
+
+  it("does not promote unsectioned children of sectioned parents when filtering by Unsorted", async () => {
+    renderSlot(inbox, listProps, {
+      sidebarThreads: {
+        status: "ready",
+        threads: [
+          thread({ id: "t_parent", projectId: "proj_work", sectionId: "sec_ops", title: "Sectioned parent" }),
+          thread({
+            id: "t_child",
+            projectId: "proj_work",
+            parentThreadId: "t_parent",
+            sectionId: null,
+            title: "Subagent child",
+          }),
+          thread({ id: "t_unsorted", projectId: "proj_personal", sectionId: null, title: "Top-level unsorted" }),
+        ],
+        projects,
+        sections,
+      },
+      providers: { status: "ready", providers: defaultProviders },
+      rpc: { listLifecycle: () => ({ rows: [] }) },
+    });
+
+    const bar = await screen.findByRole("group", { name: "Filter by section" });
+    fireEvent.click(within(bar).getByRole("button", { name: "Unsorted" }));
+    expect(screen.getByText("Top-level unsorted")).toBeDefined();
+    expect(screen.queryByText("Sectioned parent")).toBeNull();
+    expect(screen.queryByText("Subagent child")).toBeNull();
+  });
 });

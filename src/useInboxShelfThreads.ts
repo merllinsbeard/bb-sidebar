@@ -44,10 +44,13 @@ export function useInboxShelfThreads({
   const isWorking = useWorkingForDisplay();
   return useMemo(() => {
     const allVisible = visibleInboxThreads(threads);
-    const scoped = filterByProjects(allVisible, scope).filter((thread) => matchesSectionFilter(thread, sectionFilter));
+    const scoped = filterByProjects(allVisible, scope);
     // Children are listed inside their parent's row instead of the flat list;
-    // an orphan whose parent is not on screen stays here.
-    const visible = hideChildrenOfVisibleParents(scoped);
+    // filter by section after hiding children so unsectioned subthreads of a
+    // sectioned parent are not promoted to top-level rows under Unsorted.
+    const visible = hideChildrenOfVisibleParents(scoped).filter((thread) =>
+      matchesSectionFilter(thread, sectionFilter),
+    );
     const active: typeof visible = [];
     const onParkedShelf: typeof visible = [];
     const onSnoozeShelf: typeof visible = [];
