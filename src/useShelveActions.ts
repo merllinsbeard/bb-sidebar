@@ -1,40 +1,24 @@
-import { useCallback, useRef } from "react";
-import { useBbNavigate, type PluginSidebarThread } from "@get-bb/plugin-sdk/app";
+import { useCallback } from "react";
+import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import type { LifecycleApi } from "./useLifecycle";
 import { useSnoozeCommands } from "./useSnoozeCommands";
 
 /**
  * The row actions that file a thread away, plus the palette commands that run
- * through them. Leaving the open thread for a shelf lands on New thread.
+ * through them. Shelving leaves the current navigation untouched.
  */
 export function useShelveActions({
   threads,
   scope,
   lifecycle,
-  activeThreadId,
-  onNavigate,
 }: {
   threads: readonly PluginSidebarThread[];
   scope: readonly string[];
   lifecycle: LifecycleApi;
-  activeThreadId: string | null;
-  onNavigate: () => void;
 }) {
-  const navigate = useBbNavigate();
-  const activeThreadIdRef = useRef(activeThreadId);
-  activeThreadIdRef.current = activeThreadId;
-
-  const parkActiveThread = useCallback(
-    async (thread: PluginSidebarThread, mutation: () => Promise<boolean>) => {
-      const parked = await mutation();
-      if (!parked || activeThreadIdRef.current !== thread.id) return;
-
-      // Never land on a thread the user did not pick.
-      navigate.toCompose({ projectId: thread.projectId, focusPrompt: true });
-      onNavigate();
-    },
-    [navigate, onNavigate],
-  );
+  const parkActiveThread = useCallback(async (_thread: PluginSidebarThread, mutation: () => Promise<boolean>) => {
+    await mutation();
+  }, []);
 
   const parkThread = useCallback(
     (thread: PluginSidebarThread) => void parkActiveThread(thread, () => lifecycle.park(thread.id)),

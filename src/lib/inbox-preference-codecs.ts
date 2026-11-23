@@ -1,5 +1,6 @@
 import { isActiveSortMode } from "../inbox-layout";
 import type { ActiveSortMode } from "../inbox-layout";
+import type { SectionFilter } from "../section-colors";
 import type { ShelfExpansionState } from "../ThreadInboxView";
 import { MAX_CHILD_EXPANSION, pruneChildExpansion } from "./safe-storage";
 import { readStorageRaw } from "./storage-codec";
@@ -98,4 +99,15 @@ export const activeSortCodec: PreferenceCodec<ActiveSortMode> = {
     return readStorageRaw(STORAGE_KEYS.activeGrouping.key) === "true" ? "project" : "manual";
   },
   encode: (value) => value,
+};
+
+export const sectionFilterCodec: PreferenceCodec<SectionFilter> = {
+  storage: "local",
+  fallback: () => null,
+  decode: (stored) => {
+    if (!stored) return null;
+    const trimmed = stored.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  },
+  encode: (value) => value ?? "",
 };

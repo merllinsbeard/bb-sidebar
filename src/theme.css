@@ -272,6 +272,14 @@
   background-color: color-mix(in oklab, var(--bb-sidebar-project) 20%, transparent);
 }
 
+.bb-sidebar-section-dot {
+  background-color: var(--bb-sidebar-project);
+}
+
+.bb-sidebar-section-pill {
+  background-color: color-mix(in oklab, var(--bb-sidebar-project) 14%, transparent);
+}
+
 /* Only our marked toasts use BB's surfaces; the host owns the Toaster. */
 [data-sonner-toast][data-styled="true"].bb-sidebar-toast {
   background: var(--popover);

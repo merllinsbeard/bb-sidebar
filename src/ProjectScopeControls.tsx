@@ -2,6 +2,7 @@ import type { useSidebarThreads } from "./bb-sdk";
 import { useInboxActions, useInboxEnvironment } from "./InboxContext";
 import { ProjectScopeSelect } from "./ProjectScopeSelect";
 import { ProjectFavicon } from "./ProjectFavicon";
+import { SectionFilterBar } from "./SectionFilterBar";
 import { projectIconUrl } from "./project-icons";
 import { usePinnedProjects } from "./usePinnedProjects";
 import { cn } from "./lib/utils";
@@ -120,6 +121,7 @@ export function ProjectScopeControls({
           })}
         </div>
       ) : null}
+      <SectionFilterBar />
     </div>
   );
 }

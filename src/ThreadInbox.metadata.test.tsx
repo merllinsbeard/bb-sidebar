@@ -72,16 +72,69 @@ describe("card metadata", () => {
     expect(await screen.findByLabelText("some-new-agent")).toBeDefined();
   });
 
-  // A personal-project thread has a machine but no worktree, so the machine
-  // takes the branch's place instead of leaving the line blank.
-  it("shows the machine when the thread has no branch", async () => {
+  // Single-host workspaces omit the redundant machine name; multi-host lists
+  // show it when a thread has no branch.
+  it("hides the machine name when all threads run on a single host", async () => {
     render([
       thread({
         id: "thr_m",
+        title: "Single host thread",
         host: { id: "host_1", name: "Dev MacBook" },
       }),
     ]);
+    expect(await screen.findByText("Single host thread")).toBeDefined();
+    expect(screen.queryByText("Dev MacBook")).toBeNull();
+  });
+
+  it("shows the machine when threads span multiple hosts and a thread has no branch", async () => {
+    render([
+      thread({
+        id: "thr_m1",
+        title: "Mac thread",
+        host: { id: "host_1", name: "Dev MacBook" },
+      }),
+      thread({
+        id: "thr_m2",
+        title: "Server thread",
+        host: { id: "host_2", name: "merlinde" },
+      }),
+    ]);
     expect(await screen.findByText("Dev MacBook")).toBeDefined();
+    expect(screen.getByText("merlinde")).toBeDefined();
+  });
+
+  it("hides the Personal project label on cards, compact rows, and slim rows", async () => {
+    const now = Date.now();
+    renderSlot(inbox, listProps, {
+      sidebarThreads: {
+        status: "ready",
+        threads: [
+          thread({ id: "thr_personal_full", projectId: "proj_personal", title: "Personal card" }),
+          thread({ id: "thr_personal_parked", projectId: "proj_personal", title: "Personal parked" }),
+          thread({ id: "thr_work", projectId: "proj_work", title: "Work card" }),
+        ],
+        projects: [
+          { id: "proj_personal", name: "Personal", isPersonal: true, href: "", settingsHref: "" },
+          { id: "proj_work", name: "Acme", isPersonal: false, href: "", settingsHref: "" },
+        ],
+      },
+      providers: { status: "ready", providers: defaultProviders },
+      rpc: {
+        listLifecycle: () => ({
+          rows: [
+            { threadId: "thr_personal_parked", parkedAt: now, settledAt: null, snoozedUntil: null, snoozedAt: null },
+          ],
+        }),
+      },
+    });
+
+    expect(await screen.findByText("Personal card")).toBeDefined();
+    expect(screen.getByText("Acme")).toBeDefined();
+    expect(screen.queryByText("Personal")).toBeNull();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Parked/ }));
+    expect(await screen.findByText("Personal parked")).toBeDefined();
+    expect(screen.queryByText("Personal")).toBeNull();
   });
 
   it("prefers the branch over the machine when both exist", async () => {

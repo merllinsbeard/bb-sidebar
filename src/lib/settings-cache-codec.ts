@@ -67,6 +67,8 @@ export function decodeSettingsCache(input: unknown): SidebarSettingsValues | nul
       typeof value.autoArchiveAfterDays === "number"
         ? value.autoArchiveAfterDays
         : DEFAULT_SIDEBAR_SETTINGS.autoArchiveAfterDays,
+    // On by default, so a cache from before the setting keeps it on.
+    autoClassifySections: value.autoClassifySections !== false,
     dockShelves: filled.dockShelves === true,
     projectColorsEnabled: filled.projectColorsEnabled === true,
     projectColorDisplay: projectColorDisplayOf(filled.projectColorDisplay),

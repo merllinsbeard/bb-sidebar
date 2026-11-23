@@ -17,8 +17,9 @@ describe("row context menu", () => {
     ["Settled", "snooze"],
     ["Settled", "park"],
   ] as const)("%s compact card: %s", (shelf, action) => {
-    it("starts a new thread in the project", async () => {
+    it("shelves the open thread without navigating to compose", async () => {
       const now = Date.now();
+      let shelved: string | null = null;
       const rendered = renderSlot(
         inbox,
         { ...listProps, activeThreadId: "current" },
@@ -44,18 +45,18 @@ describe("row context menu", () => {
                 },
               ],
             }),
-            [action]: () => ({ ok: true, reclaim: SETTLED_NOTHING }),
+            [action]: (input) => {
+              shelved = (input as { threadId: string }).threadId;
+              return { ok: true, reclaim: SETTLED_NOTHING };
+            },
           },
         },
       );
 
       const region = await screen.findByRole("region", { name: shelf });
       await parkFromMenu(within(region).getByText("Current"), action);
-      await waitFor(() =>
-        expect(rendered.navigateCalls).toEqual([
-          { method: "toCompose", options: { projectId: "proj_1", focusPrompt: true } },
-        ]),
-      );
+      await waitFor(() => expect(shelved).toBe("current"));
+      expect(rendered.navigateCalls).toEqual([]);
     });
   });
 });

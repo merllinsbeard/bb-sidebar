@@ -39,6 +39,7 @@ import { useWorkingSince } from "./useWorkingSince";
 import { useSidebarSettings } from "./useSidebarSettings";
 import { useThreadsWithSideChats } from "./useSideChats";
 import { useProjectScope } from "./useProjectScope";
+import { useSectionFilter } from "./useSectionFilter";
 import { threadDisplayTitle } from "./inbox";
 import { movePinnedIdByOffset, orderPinnedThreads, rebaseMovedId } from "./pinned-order";
 import { parseConfiguredSnoozePresets } from "./lifecycle";
@@ -86,7 +87,7 @@ function ThreadInboxContent({
   lifecycleRows: LifecycleRows;
   portScope: PortScanScope;
 }) {
-  const { status, projects } = snapshot;
+  const { status, projects, sections = [] } = snapshot;
   const sidebarSettings = useSidebarSettings();
   const threads = useThreadsWithSideChats(snapshot.threads, sidebarSettings);
   const workingSince = useWorkingSince(threads, status);
@@ -107,8 +108,17 @@ function ThreadInboxContent({
   const dockShelvesEnabled = sidebarSettings?.dockShelves ?? DEFAULT_SIDEBAR_SETTINGS.dockShelves;
   const workingShelfEnabled = sidebarSettings?.workingShelf ?? DEFAULT_SIDEBAR_SETTINGS.workingShelf;
   const [scope, setScope] = useProjectScope({ projects, status });
+  const { sectionById, sectionColorById, sectionFilter, setSectionFilter } = useSectionFilter({ sections, status });
   const now = useQuantizedNow();
   const projectNameById = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
+  const personalProjectIds = useMemo(
+    () => new Set(projects.filter((project) => project.isPersonal).map((project) => project.id)),
+    [projects],
+  );
+  const hasMultipleHosts = useMemo(
+    () => new Set(threads.map((thread) => thread.host?.id).filter(Boolean)).size > 1,
+    [threads],
+  );
   const [expandedChildParentIds, setExpandedChildParentIds] = usePersistedPreference(
     STORAGE_KEYS.childExpansion.key,
     childExpansionCodec,
@@ -160,6 +170,7 @@ function ThreadInboxContent({
     now,
     renamingShelfLocks,
     scope,
+    sectionFilter,
     threads,
     workingShelfEnabled,
   });
@@ -407,13 +418,17 @@ function ThreadInboxContent({
     threads,
     scope,
     lifecycle,
-    activeThreadId,
-    onNavigate,
   });
 
   const inboxContext = useInboxContextValues({
     providerById,
     projectNameById,
+    personalProjectIds,
+    hasMultipleHosts,
+    sections,
+    sectionById,
+    sectionColorById,
+    sectionFilter,
     projectIconRevision,
     projects,
     sidebarSettings,
@@ -429,6 +444,7 @@ function ThreadInboxContent({
     toggleChildExpansion,
     setRenamingShelfLocks,
     setScope,
+    setSectionFilter,
     setExpandedShelves,
     setActiveSortMode,
     setSettledLimit,

@@ -95,6 +95,16 @@ describe("ThreadInbox", () => {
     expect(screen.getAllByRole("img", { name: "Codex" })).toHaveLength(1);
   });
 
+  it("constrains custom provider image avatars to a crisp square", () => {
+    render([thread({ providerId: "codex" })]);
+
+    const glyph = screen.getByRole("img", { name: "Codex" });
+    expect(glyph.className).toContain("overflow-hidden");
+    expect(glyph.className).toContain("rounded-[4px]");
+    expect(glyph.className).toContain("[&_img]:!size-3.5");
+    expect(glyph.className).toContain("[&_img]:object-cover");
+  });
+
   it("falls back to the provider id when the directory has no match", () => {
     render([thread({ providerId: "custom-agent" })]);
 

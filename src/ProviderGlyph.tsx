@@ -23,7 +23,15 @@ export function ProviderGlyph({
 }) {
   const label = provider?.displayName ?? providerId;
   return (
-    <span role="img" aria-label={label} className={cn(TRAILING_GLYPH_BOX_CLASS, className)}>
+    <span
+      role="img"
+      aria-label={label}
+      className={cn(
+        TRAILING_GLYPH_BOX_CLASS,
+        "overflow-hidden rounded-[4px] [&_img]:!size-3.5 [&_img]:!max-w-full [&_img]:!max-h-full [&_img]:object-cover",
+        className,
+      )}
+    >
       {provider ? (
         <ProviderIcon
           providerKind="agent"

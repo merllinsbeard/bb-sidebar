@@ -58,8 +58,9 @@ describe("row context menu", () => {
     it.each([
       ["an Active", false],
       ["a Pinned", true],
-    ])("starts a new thread in the project when leaving %s thread", async (_label, isPinned) => {
+    ])("leaves navigation alone when shelving %s active thread", async (_label, isPinned) => {
       let navigated = 0;
+      let shelved: string | null = null;
       const rendered = renderSlot(
         inbox,
         {
@@ -79,18 +80,19 @@ describe("row context menu", () => {
           },
           rpc: {
             listLifecycle: () => ({ rows: [] }),
-            [action]: () => ({ ok: true, reclaim: SETTLED_NOTHING }),
+            [action]: (input) => {
+              shelved = (input as { threadId: string }).threadId;
+              return { ok: true, reclaim: SETTLED_NOTHING };
+            },
           },
         },
       );
 
       await parkFromMenu(await screen.findByText("Current"), action);
-      await waitFor(() =>
-        expect(rendered.navigateCalls).toEqual([
-          { method: "toCompose", options: { projectId: "proj_1", focusPrompt: true } },
-        ]),
-      );
-      expect(navigated).toBe(1);
+      await waitFor(() => expect(shelved).toBe("current"));
+      await waitFor(() => expect(toastMocks.success).toHaveBeenCalled());
+      expect(rendered.navigateCalls).toEqual([]);
+      expect(navigated).toBe(0);
     });
   });
 });

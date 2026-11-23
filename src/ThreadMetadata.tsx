@@ -5,7 +5,7 @@ import { pullRequestStatusLabel, pullRequestToneClass } from "./pull-request-dis
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { Icon } from "./components/Icon";
 
-export function ThreadLocation({ thread }: { thread: PluginSidebarThread }) {
+export function ThreadLocation({ thread, showHost = true }: { thread: PluginSidebarThread; showHost?: boolean }) {
   const branchName = thread.environment?.branchName;
   if (branchName) {
     const isWorktree = thread.environment?.isWorktree === true;
@@ -20,7 +20,7 @@ export function ThreadLocation({ thread }: { thread: PluginSidebarThread }) {
       </span>
     );
   }
-  if (thread.host) {
+  if (showHost && thread.host) {
     return (
       <span className="flex min-w-0 flex-1 items-center gap-1 truncate">
         <Icon name="Computer" aria-hidden className="size-3 shrink-0 text-muted-foreground/60" />

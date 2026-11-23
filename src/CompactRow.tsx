@@ -2,6 +2,7 @@ import type { ComponentProps, CSSProperties, HTMLAttributes, ReactNode } from "r
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { InlineThreadTitle } from "./InlineThreadTitle";
 import { ProjectFavicon, ProjectStripe } from "./ProjectFavicon";
+import { SectionBadge } from "./SectionBadge";
 import { ThreadDetailsTooltip } from "./ThreadDetailsTooltip";
 import { cn } from "./lib/utils";
 import { DRAG_LIFT_CLASS } from "./drag-preview";
@@ -15,6 +16,8 @@ export function CompactRow({
   projectName,
   projectIconUrl,
   projectColor,
+  sectionName = null,
+  sectionColor,
   label,
   isActive,
   isSplitOpen = false,
@@ -35,6 +38,8 @@ export function CompactRow({
   projectName: string | null;
   projectIconUrl: string;
   projectColor?: CSSProperties;
+  sectionName?: string | null;
+  sectionColor?: CSSProperties;
   label: string;
   isActive: boolean;
   isSplitOpen?: boolean;
@@ -122,6 +127,9 @@ export function CompactRow({
             >
               {projectName}
             </span>
+            {sectionName && !projectIconOnly ? (
+              <SectionBadge name={sectionName} colorStyle={sectionColor} pill className="max-w-[30%]" />
+            ) : null}
             {!projectIconOnly ? (
               <span
                 aria-hidden="true"
@@ -135,6 +143,21 @@ export function CompactRow({
                 ·
               </span>
             ) : null}
+          </>
+        ) : sectionName && !isRenaming ? (
+          <>
+            <SectionBadge name={sectionName} colorStyle={sectionColor} className="max-w-[40%] shrink" />
+            <span
+              aria-hidden="true"
+              className={cn(
+                "shrink-0 text-sm leading-none",
+                !muted || isActive
+                  ? "text-muted-foreground/60"
+                  : "text-muted-foreground/45 group-hover/slim:text-muted-foreground/60",
+              )}
+            >
+              ·
+            </span>
           </>
         ) : null}
         <InlineThreadTitle

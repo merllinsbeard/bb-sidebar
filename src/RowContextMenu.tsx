@@ -1,7 +1,13 @@
 import { useThreadActions, useSidebarThreads } from "./bb-sdk";
 import { useRef, useState, type ReactNode } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import { useBbNavigate, useRpc, type PluginSidebarThread } from "@get-bb/plugin-sdk/app";
+import {
+  useBbNavigate,
+  useRpc,
+  useSdk,
+  type PluginSidebarSection,
+  type PluginSidebarThread,
+} from "@get-bb/plugin-sdk/app";
 import { errorDetail, toast } from "./lib/toast";
 import type { bbSidebarRpcContract } from "./contract";
 import { ParentThreadMenu } from "./ParentThreadMenu";
@@ -12,6 +18,7 @@ import { Icon, type IconName } from "./components/Icon";
 import { cn } from "./lib/utils";
 import { usePortalScopeProps } from "./lib/portal-scope";
 import { ProjectActions } from "./ProjectContextMenu";
+import { sectionStylesById } from "./section-colors";
 import {
   canParkThread,
   formatSnoozeWakeTime,
@@ -83,7 +90,7 @@ function RowMenuContents({
     if (!entry && key === "split") return navigate.toThread(thread.id, { split: true });
     return entry?.action.run();
   };
-  const { projects, threads } = useSidebarThreads();
+  const { projects, threads, sections = [] } = useSidebarThreads();
   const project = projects.find((project) => project.id === thread.projectId);
   const portalScope = usePortalScopeProps();
   const rpc = useRpc<typeof bbSidebarRpcContract>();
@@ -186,6 +193,7 @@ function RowMenuContents({
                   </ContextMenu.Portal>
                 </ContextMenu.Sub>
               ) : null}
+              {sections.length > 0 ? <SectionSubmenu thread={thread} sections={sections} /> : null}
               {hasPinLifecycleItems ? <Separator /> : null}
               {thread.isPinned || thread.parentThreadId == null ? (
                 <Item icon={thread.isPinned ? "PinOff" : "Pin"} onSelect={() => void togglePin()}>
@@ -252,6 +260,69 @@ function RowMenuContents({
         <SnoozePickerDialog open={pickingSnooze} onOpenChange={setPickingSnooze} onSnooze={onSnooze} />
       ) : null}
     </>
+  );
+}
+
+/** Assign or clear the thread's native BB section. */
+function SectionSubmenu({
+  thread,
+  sections,
+}: {
+  thread: PluginSidebarThread;
+  sections: readonly PluginSidebarSection[];
+}) {
+  const sdk = useSdk();
+  const portalScope = usePortalScopeProps();
+  const styles = sectionStylesById(sections);
+  const assign = async (sectionId: string | null) => {
+    try {
+      await sdk.threads.update({ threadId: thread.id, sectionId });
+    } catch (error) {
+      toast.error("Could not update section", { description: errorDetail(error) });
+    }
+  };
+
+  return (
+    <ContextMenu.Sub>
+      <ContextMenu.SubTrigger
+        className={cn(
+          "flex cursor-pointer items-center rounded-md px-2 py-[0.3125rem] text-xs outline-none",
+          "data-[state=open]:bg-accent data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
+        )}
+      >
+        Section
+        <Icon name="ChevronRight" className="ml-auto size-4 opacity-60" />
+      </ContextMenu.SubTrigger>
+      <ContextMenu.Portal>
+        <ContextMenu.SubContent
+          {...portalScope}
+          aria-label="Thread section"
+          sideOffset={4}
+          className="z-50 min-w-44 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+        >
+          {sections.map((section) => (
+            <Item key={section.id} onSelect={() => void assign(section.id)}>
+              <span
+                aria-hidden="true"
+                style={styles.get(section.id)}
+                className="bb-sidebar-section-dot size-1.5 shrink-0 rounded-full"
+              />
+              <span className="min-w-0 flex-1 truncate">{section.name}</span>
+              {thread.sectionId === section.id ? (
+                <Icon name="Check" className="ml-auto size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              ) : null}
+            </Item>
+          ))}
+          <Separator />
+          <Item onSelect={() => void assign(null)}>
+            <span className="min-w-0 flex-1 truncate">No section</span>
+            {thread.sectionId == null ? (
+              <Icon name="Check" className="ml-auto size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            ) : null}
+          </Item>
+        </ContextMenu.SubContent>
+      </ContextMenu.Portal>
+    </ContextMenu.Sub>
   );
 }
 
