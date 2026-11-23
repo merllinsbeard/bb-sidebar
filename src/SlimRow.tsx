@@ -41,7 +41,8 @@ export const SlimRow = memo(function SlimRow({
   now: number;
   childrenExpanded: boolean;
 }) {
-  const { projectNameById, projectIconRevision, snoozePresets, lifecycle, childrenByParentId } = useInboxEnvironment();
+  const { projectNameById, personalProjectIds, projectIconRevision, snoozePresets, lifecycle, childrenByParentId } =
+    useInboxEnvironment();
   const { onNavigate, parkThread, settleThread, snoozeThread, toggleChildExpansion } = useInboxActions();
   const { activeThreadId } = useInboxActivity();
   const childThreads = childrenByParentId.get(thread.id) ?? [];
@@ -56,6 +57,7 @@ export const SlimRow = memo(function SlimRow({
   // Another plugin's running status keeps the thread where it is.
   const canShelve = !useRowStatusRuns(thread.id);
   const projectName = projectNameById.get(thread.projectId) ?? null;
+  const showProject = !personalProjectIds.has(thread.projectId);
   const projectIconUrl = iconUrl(thread.projectId, projectIconRevision);
   const onPark = () => parkThread(thread);
   const onSettle = () => settleThread(thread);
@@ -69,7 +71,7 @@ export const SlimRow = memo(function SlimRow({
   const projectColor = useProjectColor(thread.projectId);
   const shortcut = useSidebarThreadShortcut(thread.id);
   const title = threadDisplayTitle(thread);
-  const rowLabel = projectName ? `${projectName} · ${title}` : title;
+  const rowLabel = showProject && projectName ? `${projectName} · ${title}` : title;
   const [isRenaming, setIsRenaming] = useState(false);
   const limit = useStatusLimit(thread);
 
@@ -90,6 +92,7 @@ export const SlimRow = memo(function SlimRow({
         <CompactRow
           thread={thread}
           tone="muted"
+          showProject={showProject}
           projectName={projectName}
           projectIconUrl={projectIconUrl}
           projectColor={projectColor}

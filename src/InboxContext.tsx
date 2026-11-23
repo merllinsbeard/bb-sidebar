@@ -26,6 +26,8 @@ import type { useRenamingShelfLocks } from "./useRenamingShelfLocks";
 interface InboxContextInputs {
   providerById: ReadonlyMap<string, SidebarProvider>;
   projectNameById: ReadonlyMap<string, string>;
+  personalProjectIds: ReadonlySet<string>;
+  hasMultipleHosts: boolean;
   projectIconRevision: number;
   projects: ReturnType<typeof useSidebarThreads>["projects"];
   sidebarSettings: SidebarSettingsValues | null;
@@ -51,6 +53,8 @@ interface InboxContextInputs {
 export function useInboxContextValues({
   providerById,
   projectNameById,
+  personalProjectIds,
+  hasMultipleHosts,
   projectIconRevision,
   projects,
   sidebarSettings,
@@ -75,6 +79,8 @@ export function useInboxContextValues({
     () => ({
       providerById,
       projectNameById,
+      personalProjectIds,
+      hasMultipleHosts,
       projectIconRevision,
       projects,
       sidebarSettings,
@@ -85,6 +91,8 @@ export function useInboxContextValues({
     [
       providerById,
       projectNameById,
+      personalProjectIds,
+      hasMultipleHosts,
       projectIconRevision,
       projects,
       sidebarSettings,

@@ -36,7 +36,7 @@ import { projectIconUrl as iconUrl } from "./project-icons";
 import "./settle-button.css";
 
 /** How long the settle sweep plays before the thread actually moves. */
-const SETTLE_SWEEP_MS = 520;
+const SETTLE_SWEEP_MS = 180;
 /** A settle that worked has unmounted the card by now; one that failed has not. */
 const SETTLE_RECOVER_MS = 4_000;
 
@@ -97,6 +97,8 @@ export function ThreadCard({
   const {
     providerById,
     projectNameById,
+    personalProjectIds,
+    hasMultipleHosts,
     projectIconRevision,
     snoozePresets,
     childrenByParentId: childrenByParent,
@@ -106,6 +108,8 @@ export function ThreadCard({
   const { now } = useInboxActivity();
   const provider = providerById.get(thread.providerId) ?? null;
   const projectName = projectNameById.get(thread.projectId) ?? null;
+  const isPersonalProject = personalProjectIds.has(thread.projectId);
+  const showProjectRow = showProject && !isPersonalProject;
   const projectIconUrl = iconUrl(thread.projectId, projectIconRevision);
   const onPark = () => parkThread(thread);
   const onSettle = () => settleThread(thread);
@@ -232,7 +236,7 @@ export function ThreadCard({
       data-settle-fade=""
       className={cn(
         "pointer-events-none relative truncate text-sm",
-        showProject ? "mt-0.5" : "min-w-0 flex-1",
+        showProjectRow ? "mt-0.5" : "min-w-0 flex-1",
         isRenaming && "pointer-events-auto",
         emphasis === "read-idle" ? "text-muted-foreground" : "text-foreground",
         (emphasis === "unread" || emphasis === "woke") && "font-medium",
@@ -268,7 +272,7 @@ export function ThreadCard({
             <CompactRow
               thread={thread}
               tone="normal"
-              showProject={showProject}
+              showProject={showProjectRow}
               projectIconOnly={projectIconOnly}
               projectName={projectName}
               projectIconUrl={projectIconUrl}
@@ -341,7 +345,7 @@ export function ThreadCard({
               )}
             >
               {isSettling ? <span aria-hidden="true" className="bb-sidebar-settle-sweep" /> : null}
-              {showProject && projectName ? <ProjectStripe projectId={thread.projectId} view={stripeView} /> : null}
+              {showProjectRow && projectName ? <ProjectStripe projectId={thread.projectId} view={stripeView} /> : null}
               <ThreadDetailsTooltip thread={thread} disabled={isRenaming || !!reorder?.isDragging}>
                 <a
                   // Both attributes, or bb's nine thread shortcuts stop finding rows.
@@ -379,7 +383,7 @@ export function ThreadCard({
                 />
               </ThreadDetailsTooltip>
               <div className="pointer-events-none relative flex h-5 min-w-0 items-center gap-1.5">
-                {showProject ? (
+                {showProjectRow ? (
                   <span
                     data-settle-fade=""
                     className="flex min-w-0 flex-1 items-center gap-1.5 text-2xs font-medium text-muted-foreground"
@@ -421,11 +425,11 @@ export function ThreadCard({
                       showParkActions && "[@media(hover:none)]:w-auto [@media(hover:none)]:gap-1.5",
                       (limit || !showParkActions) && "w-auto min-w-20",
                       limit && limitSlotClass("slot", showParkActions, holdParkActions),
-                      !showProject && "w-auto min-w-0",
-                      !showProject &&
+                      !showProjectRow && "w-auto min-w-0",
+                      !showProjectRow &&
                         showParkActions &&
                         "[@media(hover:hover)]:group-hover/card:min-w-11 has-[:focus-visible]:min-w-11",
-                      !showProject && holdParkActions && "min-w-11",
+                      !showProjectRow && holdParkActions && "min-w-11",
                     )}
                   >
                     <span
@@ -434,7 +438,7 @@ export function ThreadCard({
                         showParkActions &&
                           !limit &&
                           "[@media(hover:hover)]:group-hover/card:opacity-0 [@media(hover:hover)]:group-has-[:focus-visible]/status-slot:opacity-0 [@media(hover:none)]:static [@media(hover:none)]:opacity-100",
-                        showParkActions && !limit && showProject && "absolute inset-y-0 right-0",
+                        showParkActions && !limit && showProjectRow && "absolute inset-y-0 right-0",
                         holdParkActions && !limit && "opacity-0 [@media(hover:none)]:opacity-100",
                       )}
                     >
@@ -464,7 +468,7 @@ export function ThreadCard({
                   </span>
                 )}
               </div>
-              {showProject ? titleLine : null}
+              {showProjectRow ? titleLine : null}
               <div
                 data-settle-fade=""
                 className={cn(
@@ -475,7 +479,7 @@ export function ThreadCard({
                 {/* A thread without a worktree still runs somewhere, so the
                   machine takes the branch's place rather than leaving the line
                   blank. */}
-                {showEnvironment ? <ThreadLocation thread={thread} /> : null}
+                {showEnvironment ? <ThreadLocation thread={thread} showHost={hasMultipleHosts} /> : null}
                 <OpenPortsIndicator thread={thread} />
                 {childThreads.length > 0 ? (
                   <ChildThreadBadge

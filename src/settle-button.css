@@ -97,7 +97,7 @@
     color-mix(in oklab, var(--bb-sidebar-settle-accent) 6%, transparent)
   );
   transform-origin: right;
-  animation: bb-sidebar-settle-wash 340ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: bb-sidebar-settle-wash 150ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .bb-sidebar-settle-sweep::after {
@@ -112,11 +112,11 @@
     transparent
   );
   transform: translateX(240%) skewX(-20deg);
-  animation: bb-sidebar-settle-glint 560ms 60ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+  animation: bb-sidebar-settle-glint 200ms 20ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 
 [data-parent-card][data-settling] [data-settle-fade] {
-  animation: bb-sidebar-settle-fade 380ms 160ms cubic-bezier(0.55, 0, 0.75, 0.2) forwards;
+  animation: bb-sidebar-settle-fade 140ms 40ms cubic-bezier(0.55, 0, 0.75, 0.2) forwards;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -152,11 +152,11 @@
   }
 
   .bb-sidebar-settle[data-settling] .bb-sidebar-settle-check {
-    animation: bb-sidebar-settle-pop 380ms var(--bb-sidebar-settle-spring) forwards;
+    animation: bb-sidebar-settle-pop 160ms var(--bb-sidebar-settle-spring) forwards;
   }
 
   .bb-sidebar-settle[data-settling] .bb-sidebar-settle-star {
-    animation: bb-sidebar-settle-star-fly 520ms var(--bb-sidebar-settle-ease) forwards;
+    animation: bb-sidebar-settle-star-fly 200ms var(--bb-sidebar-settle-ease) forwards;
   }
 }
 

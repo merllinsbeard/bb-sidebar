@@ -109,6 +109,14 @@ function ThreadInboxContent({
   const [scope, setScope] = useProjectScope({ projects, status });
   const now = useQuantizedNow();
   const projectNameById = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
+  const personalProjectIds = useMemo(
+    () => new Set(projects.filter((project) => project.isPersonal).map((project) => project.id)),
+    [projects],
+  );
+  const hasMultipleHosts = useMemo(
+    () => new Set(threads.map((thread) => thread.host?.id).filter(Boolean)).size > 1,
+    [threads],
+  );
   const [expandedChildParentIds, setExpandedChildParentIds] = usePersistedPreference(
     STORAGE_KEYS.childExpansion.key,
     childExpansionCodec,
@@ -407,13 +415,13 @@ function ThreadInboxContent({
     threads,
     scope,
     lifecycle,
-    activeThreadId,
-    onNavigate,
   });
 
   const inboxContext = useInboxContextValues({
     providerById,
     projectNameById,
+    personalProjectIds,
+    hasMultipleHosts,
     projectIconRevision,
     projects,
     sidebarSettings,
