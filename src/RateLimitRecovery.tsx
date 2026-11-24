@@ -53,7 +53,7 @@ export function RateLimitRecovery({ thread }: { thread: PluginSidebarThread }) {
         <span
           data-limit-control=""
           className={cn(
-            "group/limit pointer-events-auto relative inline-grid h-5 shrink-0 items-center whitespace-nowrap text-2xs font-medium",
+            "group/limit pointer-events-auto relative inline-grid h-5 shrink-0 items-center whitespace-nowrap text-xs font-medium",
             queued?.failed
               ? "text-[color:var(--bb-sidebar-tone-error)]"
               : "text-[color:var(--bb-sidebar-tone-pending)]",

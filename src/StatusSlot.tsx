@@ -7,6 +7,7 @@ import {
   type PluginSidebarThreadRowStatus,
 } from "@get-bb/plugin-sdk/app";
 import { StillThreadStatusGlyph } from "./StillThreadStatusGlyph";
+import { StatusGlyph, statusToneClass } from "./StatusGlyph";
 import { useCallback, useMemo } from "react";
 import { resolveThreadStatus } from "./bb-sdk";
 import { isKnownIndicator, unhandledIndicator, type ThreadWorking } from "./child-status";
@@ -87,7 +88,7 @@ export function StatusOrTime({
     return (
       <span className="flex items-center gap-1">
         <StillThreadStatusGlyph indicator="none" rowStatus={rowStatus} size="compact" />
-        <span className="tabular-nums text-2xs text-muted-foreground">{relativeTimeLabel(thread.updatedAt, now)}</span>
+        <span className="tabular-nums text-xs text-subtle-foreground">{relativeTimeLabel(thread.updatedAt, now)}</span>
       </span>
     );
   }
@@ -103,27 +104,39 @@ export function StatusOrTime({
         >
           <StillThreadStatusGlyph indicator={thread.indicator} size="compact" />
         </span>
-        <span className="tabular-nums text-2xs text-muted-foreground">{relativeTimeLabel(thread.updatedAt, now)}</span>
+        <span className="tabular-nums text-xs text-subtle-foreground">{relativeTimeLabel(thread.updatedAt, now)}</span>
       </span>
     );
   }
   if (status !== null) {
-    const label = shortStatusLabel(status, workingSince.get(thread.id), now);
+    const startedAt = workingSince.get(thread.id);
+    const label = shortStatusLabel(status, startedAt, now);
+    const elapsed = status.showsDuration && startedAt !== undefined ? relativeTimeLabel(startedAt, now) : null;
     return (
-      <span
-        aria-label={status.ariaLabel ?? (thread.hasPendingInteraction ? label : (thread.indicatorLabel ?? label))}
-        className={cn(
-          "max-w-full truncate text-2xs font-medium",
-          status.showsDuration && "tabular-nums",
-          status.className,
-        )}
-      >
-        {label}
-      </span>
+      <>
+        <span
+          aria-hidden="true"
+          title={label}
+          className={cn("inline-flex shrink-0 items-center gap-1 tabular-nums text-xs", status.className)}
+        >
+          <span className="inline-flex size-4 shrink-0 items-center justify-center">
+            <StatusGlyph indicator={status.indicator} label={null} className="size-3.5" />
+          </span>
+          {elapsed && elapsed !== "now" ? (
+            <span className="text-xs tabular-nums text-subtle-foreground">{elapsed}</span>
+          ) : null}
+        </span>
+        <span
+          aria-label={status.ariaLabel ?? (thread.hasPendingInteraction ? label : (thread.indicatorLabel ?? label))}
+          className={cn("sr-only", status.className)}
+        >
+          {label}
+        </span>
+      </>
     );
   }
   return (
-    <span className="tabular-nums text-2xs text-muted-foreground">{relativeTimeLabel(thread.updatedAt, now)}</span>
+    <span className="tabular-nums text-xs text-subtle-foreground">{relativeTimeLabel(thread.updatedAt, now)}</span>
   );
 }
 
@@ -197,6 +210,7 @@ export function useWorkingForDisplay(): ThreadWorking {
 
 interface ShortStatus {
   label: string;
+  indicator: PluginSidebarThreadIndicator;
   className: string;
   /** Live work gets a running duration; a verdict or a request does not. */
   showsDuration: boolean;
@@ -208,29 +222,30 @@ function shortStatus(indicator: PluginSidebarThreadIndicator, indicatorLabel: st
   const className = statusToneClass(indicator);
   switch (indicator) {
     case "unread-error":
-      return { label: "Failed", className, showsDuration: false };
+      return { label: "Failed", indicator, className, showsDuration: false };
     case "waiting-for-input":
-      return { label: "Needs you", className, showsDuration: false };
+      return { label: "Needs you", indicator, className, showsDuration: false };
     case "unread-success":
-      return { label: "Unread", className, showsDuration: false };
+      return { label: "Unread", indicator, className, showsDuration: false };
     case "runtime":
       return {
         label: isMonitoringLabel(indicatorLabel) ? "Monitoring" : "Working",
+        indicator,
         className,
         showsDuration: true,
       };
     case "workflow":
-      return { label: "Workflow", className, showsDuration: true };
+      return { label: "Workflow", indicator, className, showsDuration: true };
     case "background-agent":
-      return { label: "Agent", className, showsDuration: true };
+      return { label: "Agent", indicator, className, showsDuration: true };
     case "background-command":
-      return { label: "Command", className, showsDuration: true };
+      return { label: "Command", indicator, className, showsDuration: true };
     case "plan-mode":
-      return { label: "Planning", className, showsDuration: true };
+      return { label: "Planning", indicator, className, showsDuration: true };
     case "draft":
-      return { label: "Draft", className, showsDuration: false };
+      return { label: "Draft", indicator, className, showsDuration: false };
     case "working-draft":
-      return { label: "Drafting", className, showsDuration: true };
+      return { label: "Drafting", indicator, className, showsDuration: true };
     case "queued-failed":
     case "queued-waiting":
       // Worded from `queuedWork` in threadShortStatus, which also covers a
@@ -262,6 +277,7 @@ export function threadShortStatus(thread: PluginSidebarThread, retry: QueuedRetr
   if (thread.queuedWork === "failed") {
     return {
       label: "Send failed",
+      indicator: "queued-failed",
       className: statusToneClass("unread-error"),
       showsDuration: false,
       ariaLabel: "A queued message failed to send",
@@ -271,6 +287,7 @@ export function threadShortStatus(thread: PluginSidebarThread, retry: QueuedRetr
   if (status === null && thread.queuedWork === "waiting") {
     return {
       label: "Queued",
+      indicator: "queued-waiting",
       className: statusToneClass("draft"),
       showsDuration: false,
       ariaLabel: "A message is waiting to send",
@@ -279,7 +296,7 @@ export function threadShortStatus(thread: PluginSidebarThread, retry: QueuedRetr
   return status;
 }
 
-export function shortStatusLabel(status: ShortStatus, startedAt: number | undefined, now: number): string {
+function shortStatusLabel(status: ShortStatus, startedAt: number | undefined, now: number): string {
   return status.showsDuration ? statusWithDuration(status.label, startedAt, now) : status.label;
 }
 
@@ -320,6 +337,7 @@ export function retryingStatus(thread: PluginSidebarThread, retry: QueuedRetry |
   }
   return {
     label: "Retrying",
+    indicator: "queued-waiting",
     className: "text-[color:var(--bb-sidebar-tone-pending)]",
     showsDuration: false,
     ariaLabel:
@@ -335,33 +353,4 @@ function isMonitoringLabel(label: string | null): boolean {
   return label?.toLocaleLowerCase().includes("monitoring") ?? false;
 }
 
-/** Status palette shared by cards, child labels, and glyphs. */
-export function statusToneClass(indicator: PluginSidebarThreadIndicator): string {
-  switch (indicator) {
-    case "unread-error":
-      return "text-[color:var(--bb-sidebar-tone-error)]";
-    case "waiting-for-input":
-      return "text-[color:var(--bb-sidebar-tone-pending)]";
-    case "unread-success":
-      return "text-[color:var(--bb-sidebar-tone-success)]";
-    case "runtime":
-    case "workflow":
-    case "background-agent":
-    case "plan-mode":
-      return "text-[color:var(--bb-sidebar-tone-working)]";
-    case "background-command":
-      // Only a process the agent started is running, not the agent itself.
-      return "text-[color:var(--bb-sidebar-tone-command)]";
-    case "draft":
-    case "working-draft":
-    case "queued-waiting":
-      return "text-[color:var(--bb-sidebar-tone-draft)]";
-    case "queued-failed":
-      return "text-[color:var(--bb-sidebar-tone-error)]";
-    case "none":
-      return "text-muted-foreground";
-    default:
-      unhandledIndicator(indicator);
-      return "text-muted-foreground";
-  }
-}
+export { statusToneClass };

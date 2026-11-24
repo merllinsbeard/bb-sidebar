@@ -1,21 +1,41 @@
 import type { PluginSidebarThreadIndicator } from "@get-bb/plugin-sdk";
 import type { AnimationEvent } from "react";
-import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { Icon } from "./components/Icon";
 import { unhandledIndicator } from "./child-status";
 import { StillThreadStatusGlyph } from "./StillThreadStatusGlyph";
 import { cn } from "./lib/utils";
-import { relativeTimeLabel } from "./relative-time";
-import {
-  shortStatusLabel,
-  statusToneClass,
-  StatusOrTime,
-  threadShortStatus,
-  useStatusLimit,
-  useThreadWithDraft,
-} from "./StatusSlot";
-import { useWorkingSinceContext } from "./useWorkingSince";
 import "./working-pulse.css";
+
+/** Status palette shared by cards, child labels, and glyphs. */
+export function statusToneClass(indicator: PluginSidebarThreadIndicator): string {
+  switch (indicator) {
+    case "unread-error":
+      return "text-[color:var(--bb-sidebar-tone-error)]";
+    case "waiting-for-input":
+      return "text-[color:var(--bb-sidebar-tone-pending)]";
+    case "unread-success":
+      return "text-[color:var(--bb-sidebar-tone-success)]";
+    case "runtime":
+    case "workflow":
+    case "background-agent":
+    case "plan-mode":
+      return "text-[color:var(--bb-sidebar-tone-working)]";
+    case "background-command":
+      // Only a process the agent started is running, not the agent itself.
+      return "text-[color:var(--bb-sidebar-tone-command)]";
+    case "draft":
+    case "working-draft":
+    case "queued-waiting":
+      return "text-[color:var(--bb-sidebar-tone-draft)]";
+    case "queued-failed":
+      return "text-[color:var(--bb-sidebar-tone-error)]";
+    case "none":
+      return "text-subtle-foreground";
+    default:
+      unhandledIndicator(indicator);
+      return "text-subtle-foreground";
+  }
+}
 
 /**
  * This plugin's status glyphs, matching bb's own sidebar shape for shape: the
@@ -149,37 +169,4 @@ function ActivityIcon({
   className: string;
 }) {
   return <Icon name={name} aria-label={label} className={cn("opacity-75", className)} />;
-}
-
-/**
- * The live-status glyph and how long the work has run ("◌ 5m"), for rows too
- * narrow for the card's "Working · 5m". The full label stays readable to
- * assistive tech; the duration is left off under a minute, as on the card.
- * Threads with no live status show their usual status or age, including
- * parents whose children are still running.
- */
-export function CompactStatusOrTime({
-  thread: listedThread,
-  now,
-}: {
-  thread: PluginSidebarThread;
-  /** Quantized clock, shared by every row in one render. */
-  now: number;
-}) {
-  const thread = useThreadWithDraft(listedThread);
-  const workingSince = useWorkingSinceContext();
-  const limit = useStatusLimit(listedThread);
-  const status = threadShortStatus(thread);
-  if (limit || status === null || !status.showsDuration) return <StatusOrTime thread={listedThread} now={now} />;
-  const startedAt = workingSince.get(thread.id);
-  const elapsed = startedAt === undefined ? "now" : relativeTimeLabel(startedAt, now);
-  return (
-    <span className={cn("flex shrink-0 items-center gap-1 tabular-nums text-2xs font-medium", status.className)}>
-      <span aria-hidden="true" className="flex items-center">
-        <StatusGlyph indicator={thread.indicator} label={null} className="size-3" />
-      </span>
-      {elapsed === "now" ? null : <span aria-hidden="true">{elapsed}</span>}
-      <span className="sr-only">{shortStatusLabel(status, startedAt, now)}</span>
-    </span>
-  );
 }

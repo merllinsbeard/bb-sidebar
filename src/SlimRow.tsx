@@ -4,6 +4,7 @@ import { Icon } from "./components/Icon";
 import { Tooltip } from "./components/Tooltip";
 import { ChildThreadBadge, ChildThreadList, collapsedChildThreads } from "./ChildThreadList";
 import { CompactRow } from "./CompactRow";
+import { ProviderGlyph } from "./ProviderGlyph";
 import { RowContextMenu } from "./RowContextMenu";
 import { StatusOrTime, useStatusLimit, useWorkingForDisplay } from "./StatusSlot";
 import { threadDisplayTitle } from "./inbox";
@@ -12,6 +13,7 @@ import { useProjectColor } from "./ProjectColors";
 import { OpenPortsIndicator } from "./OpenPorts";
 import { ShortcutHint } from "./bb-sdk";
 import { rowKeyshortcuts } from "./lib/keyshortcuts";
+import { cn } from "./lib/utils";
 import { useInboxActivity, useInboxEnvironment, useInboxActions } from "./InboxContext";
 import { useRowStatusRuns } from "./useLifecycle";
 import { projectIconUrl as iconUrl } from "./project-icons";
@@ -42,6 +44,7 @@ export const SlimRow = memo(function SlimRow({
   childrenExpanded: boolean;
 }) {
   const {
+    providerById,
     projectNameById,
     personalProjectIds,
     sectionById,
@@ -51,6 +54,7 @@ export const SlimRow = memo(function SlimRow({
     lifecycle,
     childrenByParentId,
   } = useInboxEnvironment();
+  const provider = providerById.get(thread.providerId) ?? null;
   const { onNavigate, parkThread, settleThread, snoozeThread, toggleChildExpansion } = useInboxActions();
   const { activeThreadId } = useInboxActivity();
   const childThreads = childrenByParentId.get(thread.id) ?? [];
@@ -115,6 +119,13 @@ export const SlimRow = memo(function SlimRow({
           onRenamingChange={setIsRenaming}
           linkProps={{ "aria-keyshortcuts": rowKeyshortcuts(shortcut?.ariaKeyshortcuts, false) }}
           onOpen={onNavigate}
+          leading={
+            <ProviderGlyph
+              providerId={thread.providerId}
+              provider={provider}
+              className={cn(!isActive && "opacity-75 group-hover/slim:opacity-100")}
+            />
+          }
           trailing={
             <>
               <OpenPortsIndicator thread={thread} />
@@ -138,7 +149,7 @@ export const SlimRow = memo(function SlimRow({
               ) : limit ? (
                 <StatusOrTime thread={thread} now={now} />
               ) : (
-                <span className="pointer-events-none relative flex min-w-5 shrink-0 items-center justify-end tabular-nums text-2xs text-muted-foreground/60 [@media(hover:none)]:gap-2">
+                <span className="pointer-events-none relative flex min-w-6 shrink-0 items-center justify-end tabular-nums text-xs text-subtle-foreground [@media(hover:none)]:gap-2">
                   <span className="flex items-center transition-opacity duration-150 ease-out [@media(hover:hover)]:group-hover/slim:opacity-0 motion-reduce:transition-none">
                     {shelf === "parked" && parkedAt != null ? (
                       `Waiting ${Math.max(0, Math.floor((now - parkedAt) / 86_400_000))}d`
@@ -171,9 +182,7 @@ export const SlimRow = memo(function SlimRow({
                         event.stopPropagation();
                         onRestore();
                       }}
-                      // Pulled right by its own padding, so the icon — not the hit
-                      // area — lands on the column.
-                      className="pointer-events-auto absolute -right-0.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity duration-150 ease-out hover:text-foreground focus-visible:opacity-100 group-hover/slim:opacity-100 [@media(hover:none)]:static [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100 motion-reduce:transition-none"
+                      className="pointer-events-auto absolute right-0 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground opacity-0 transition-opacity duration-150 ease-out hover:bg-state-hover hover:text-sidebar-foreground focus-visible:opacity-100 group-hover/slim:opacity-100 [@media(hover:none)]:static [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100 motion-reduce:transition-none"
                     >
                       <Icon name={shelf === "snoozed" ? "Clock" : "ArrowTurnBackward"} className="size-3.5" />
                     </button>

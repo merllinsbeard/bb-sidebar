@@ -31,12 +31,7 @@ export function ProviderGlyph({
       )}
     >
       {provider ? (
-        <ProviderIcon
-          providerKind="agent"
-          provider={provider}
-          aria-hidden
-          className="size-3.5 text-muted-foreground/70"
-        />
+        <ProviderIcon providerKind="agent" provider={provider} aria-hidden className="size-3.5 text-muted-foreground" />
       ) : (
         <span className="size-2 rounded-full bg-muted-foreground/50" />
       )}

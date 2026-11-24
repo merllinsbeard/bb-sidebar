@@ -39,7 +39,7 @@ describe("parking threads", () => {
     expect(within(shelf).getByLabelText("bb · Later")).toBeDefined();
     await waitFor(() => expect(within(shelf).getByText("bb").className).toContain("text-muted-foreground/50"));
     expect(within(shelf).getByText("·").className).toContain("text-sm");
-    expect(within(shelf).getByText("Later").className).toContain("text-foreground/80");
+    expect(within(shelf).getByText("Later").className).toContain("text-sidebar-foreground/80");
     expect(within(shelf).getByLabelText("Wake thread now")).toBeDefined();
   });
 

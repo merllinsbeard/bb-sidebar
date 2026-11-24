@@ -226,7 +226,56 @@ describe("card metadata", () => {
     expect(read?.className).toContain("text-muted-foreground");
     expect(unread?.getAttribute("data-row-emphasis")).toBe("unread");
     expect(unread?.className).toContain("font-medium");
-    expect(unread?.className).toContain("text-foreground");
+    expect(unread?.className).toContain("text-sidebar-foreground");
+  });
+
+  it("collapses to a single native row when a Personal thread has no metadata and renders a pl-6 subline when metadata exists", async () => {
+    renderSlot(inbox, listProps, {
+      sidebarThreads: {
+        status: "ready",
+        threads: [
+          thread({ id: "thr_plain", projectId: "proj_personal", sectionId: null, title: "Plain personal" }),
+          thread({
+            id: "thr_branch",
+            projectId: "proj_personal",
+            sectionId: null,
+            title: "Personal with branch",
+            environment: {
+              id: "env_1",
+              name: "Worktree",
+              branchName: "feat/native-ui",
+              workspaceDisplayKind: "managed-worktree",
+              path: null,
+              isWorktree: true,
+              providerId: null,
+            },
+          }),
+          thread({ id: "thr_work", projectId: "proj_work", sectionId: null, title: "Project thread" }),
+        ],
+        projects: [
+          { id: "proj_personal", name: "Personal", isPersonal: true, href: "", settingsHref: "" },
+          { id: "proj_work", name: "Acme", isPersonal: false, href: "", settingsHref: "" },
+        ],
+      },
+      providers: { status: "ready", providers: defaultProviders },
+      rpc: { listLifecycle: () => ({ rows: [] }) },
+    });
+
+    const plainCard = (await screen.findByRole("link", { name: "Plain personal" })).closest("[data-parent-card]")!;
+    expect(plainCard.getAttribute("data-row-metadata")).toBe("false");
+    expect(plainCard.querySelector("[data-row-metadata-line]")).toBeNull();
+
+    const branchCard = screen.getByRole("link", { name: "Personal with branch" }).closest("[data-parent-card]")!;
+    expect(branchCard.getAttribute("data-row-metadata")).toBe("true");
+    const branchMeta = branchCard.querySelector("[data-row-metadata-line]")!;
+    expect(branchMeta.className).toContain("pl-6");
+    expect(within(branchMeta as HTMLElement).getByText("feat/native-ui")).toBeDefined();
+
+    const workCard = screen.getByRole("link", { name: "Project thread" }).closest("[data-parent-card]")!;
+    expect(workCard.getAttribute("data-row-metadata")).toBe("true");
+    const workMeta = workCard.querySelector("[data-row-metadata-line]")!;
+    expect(workMeta.className).toContain("pl-6");
+    expect(within(workMeta as HTMLElement).getByText("Acme")).toBeDefined();
   });
 
   it("shows the shared details card on the main thread without an icon tooltip", async () => {
