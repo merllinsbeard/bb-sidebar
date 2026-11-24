@@ -2,9 +2,11 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
 import { matchSectionDeterministic, parseClassifiedSection } from "./server-auto-section";
+import { matchSectionByProjectHistory, redactSecrets } from "./server-auto-section-prompt";
 import { createFakePluginHost, disposers, projectThread, projectsWith, standardProject } from "./test-server";
 
 const SECTIONS = [
@@ -65,6 +67,49 @@ describe("auto-section pure helpers", () => {
     expect(parseClassifiedSection("", SECTIONS)).toBeNull();
     expect(parseClassifiedSection(null, SECTIONS)).toBeNull();
   });
+
+  it("matches non-personal project history at >= 2 threads and >= 80% share, ignoring personal, splits, and target", () => {
+    const ops1 = projectThread({ id: "thr_o1", projectId: "proj_smena", sectionId: "sec_ops" });
+    const ops2 = projectThread({ id: "thr_o2", projectId: "proj_smena", sectionId: "sec_ops" });
+    const ops3 = projectThread({ id: "thr_o3", projectId: "proj_smena", sectionId: "sec_ops" });
+    const ops4 = projectThread({ id: "thr_o4", projectId: "proj_smena", sectionId: "sec_ops" });
+    const sales1 = projectThread({ id: "thr_s1", projectId: "proj_smena", sectionId: "sec_sales" });
+
+    expect(matchSectionByProjectHistory("proj_smena", false, [ops1, ops2], SECTIONS, "thr_new")?.id).toBe("sec_ops");
+    expect(
+      matchSectionByProjectHistory("proj_smena", false, [ops1, ops2, ops3, ops4, sales1], SECTIONS, "thr_new")?.id,
+    ).toBe("sec_ops");
+    expect(matchSectionByProjectHistory("proj_smena", true, [ops1, ops2], SECTIONS, "thr_new")).toBeNull();
+    expect(matchSectionByProjectHistory("proj_smena", false, [ops1, sales1], SECTIONS, "thr_new")).toBeNull();
+    expect(
+      matchSectionByProjectHistory("proj_smena", false, [ops1, ops2, ops3, sales1], SECTIONS, "thr_new"),
+    ).toBeNull();
+    expect(matchSectionByProjectHistory("proj_smena", false, [ops1, ops2], SECTIONS, "thr_o2")).toBeNull();
+    expect(
+      matchSectionByProjectHistory(
+        "proj_smena",
+        false,
+        [ops1, projectThread({ id: "thr_hid", projectId: "proj_smena", sectionId: "sec_ops", visibility: "hidden" })],
+        SECTIONS,
+        "thr_new",
+      ),
+    ).toBeNull();
+  });
+
+  it("redacts inline credentials without corrupting normal prose or URLs", () => {
+    const input =
+      "Check https://github.com/merllinsbeard/bb-sidebar/pull/6: Authorization: Bearer dmcp_secret1234567890, key sk-live-secret1234567890, Basic dXNlcjpwYXNzd29yZA==, https://api.example.com/v1?token=abcdef1234567890xyz&page=2 и обычный текст";
+    const redacted = redactSecrets(input);
+    expect(redacted).not.toContain("dmcp_secret1234567890");
+    expect(redacted).not.toContain("sk-live-secret1234567890");
+    expect(redacted).not.toContain("dXNlcjpwYXNzd29yZA==");
+    expect(redacted).not.toContain("abcdef1234567890xyz");
+    expect(redacted).toContain("Authorization: Bearer [REDACTED]");
+    expect(redacted).toContain("Basic [REDACTED]");
+    expect(redacted).toContain("https://github.com/merllinsbeard/bb-sidebar/pull/6");
+    expect(redacted).toContain("https://api.example.com/v1?token=[REDACTED]&page=2");
+    expect(redacted).toContain("и обычный текст");
+  });
 });
 
 describe("server auto-section classifier & CLI", () => {
@@ -107,9 +152,12 @@ describe("server auto-section classifier & CLI", () => {
 
   function setupHost(options?: {
     threads?: ReturnType<typeof projectThread>[];
-    projects?: ReturnType<typeof projectsWith>;
+    projects?: Array<Omit<ReturnType<typeof projectsWith>[number], "kind"> & { kind: "standard" | "personal" }>;
     sections?: typeof SECTIONS;
     eventsForThread?: (threadId: string) => unknown[];
+    listThreads?: (
+      args?: Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0],
+    ) => Promise<ReturnType<typeof projectThread>[]>;
   }) {
     const threads = options?.threads ?? [
       projectThread({ id: "thr_1", projectId: "proj_personal", title: "Review Q4 sales deck" }),
@@ -150,6 +198,17 @@ describe("server auto-section classifier & CLI", () => {
         projects: { list: async () => projects as never },
         threadSections: { list: async () => sections as never },
         threads: {
+          list: (options?.listThreads ??
+            (async (args: Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0]) => {
+              const all = projects.flatMap((p) => ("threads" in p ? p.threads : []));
+              let filtered = all;
+              if (args?.threadIds) filtered = filtered.filter((t) => args.threadIds!.includes(t.id));
+              if (args?.projectId) filtered = filtered.filter((t) => t.projectId === args.projectId);
+              if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
+              if (args?.unsectioned === true) filtered = filtered.filter((t) => t.sectionId === null);
+              const offset = args?.offset ?? 0;
+              return filtered.slice(offset, offset + (args?.limit ?? 100));
+            })) as never,
           get: async ({ threadId }) => {
             const match = threads.find((t) => t.id === threadId);
             if (!match) throw new Error(`Unknown thread ${threadId}`);
@@ -331,7 +390,200 @@ describe("server auto-section classifier & CLI", () => {
     expect(claudeCallCount()).toBe(1);
   });
 
-  it("retries on next thread.idle after a claude failure instead of locking out the thread", async () => {
+  it("reads the first user prompt from client/turn/requested events when client/thread/start params are empty", async () => {
+    const t = projectThread({ id: "thr_req", projectId: "proj_personal", title: null, titleFallback: null });
+    const { bb, harness, updated } = setupHost({
+      threads: [t],
+      eventsForThread: (threadId) => [
+        {
+          id: "ev_0",
+          seq: 0,
+          threadId,
+          createdAt: 1,
+          scope: { kind: "thread" as const },
+          type: "client/thread/start" as const,
+          data: { request: { params: {} } },
+        },
+        {
+          id: "ev_1",
+          seq: 1,
+          threadId,
+          createdAt: 2,
+          scope: { kind: "thread" as const },
+          type: "client/turn/requested" as const,
+          data: {
+            input: [{ type: "text" as const, text: "Draft enterprise pricing quote for Acme" }],
+          },
+        },
+      ],
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_req", "--json"]);
+    expect(res.exitCode).toBe(0);
+    expect(updated).toEqual([{ threadId: "thr_req", sectionId: "sec_sales" }]);
+    expect(claudeCall(1).stdin).toContain("Draft enterprise pricing quote for Acme");
+  });
+
+  it("includes recent sectioned thread examples while excluding target, child, and hidden threads, and tolerates list failures", async () => {
+    const target = projectThread({
+      id: "thr_target",
+      projectId: "proj_personal",
+      sectionId: "sec_sales",
+      title: "Self title must not leak",
+      updatedAt: 999,
+    });
+    const threads = [
+      target,
+      projectThread({
+        id: "thr_sales_new",
+        projectId: "proj_personal",
+        sectionId: "sec_sales",
+        title: 'Q4 enterprise\n  "VIP" renewal',
+        updatedAt: 500,
+      }),
+      projectThread({
+        id: "thr_sales_fallback",
+        projectId: "proj_personal",
+        sectionId: "sec_sales",
+        title: null,
+        titleFallback: "Cold outreach sequence",
+        updatedAt: 400,
+      }),
+      projectThread({
+        id: "thr_sales_child",
+        projectId: "proj_personal",
+        sectionId: "sec_sales",
+        parentThreadId: "thr_sales_new",
+        title: "Child thread excluded",
+        updatedAt: 800,
+      }),
+      projectThread({
+        id: "thr_sales_hidden",
+        projectId: "proj_personal",
+        sectionId: "sec_sales",
+        visibility: "hidden",
+        title: "Hidden thread excluded",
+        updatedAt: 850,
+      }),
+      projectThread({
+        id: "thr_ops_1",
+        projectId: "proj_personal",
+        sectionId: "sec_ops",
+        title: "Rotate production TLS certificates",
+        latestAttentionAt: 300,
+      }),
+    ];
+    const { bb, harness } = setupHost({ threads });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_target", "--force", "--dry-run", "--json"]);
+    expect(res.exitCode).toBe(0);
+    const stdin = claudeCall(1).stdin;
+    expect(stdin).toContain('- Sales (examples: "Q4 enterprise \'VIP\' renewal"; "Cold outreach sequence")');
+    expect(stdin).toContain('- Ops & Infra (examples: "Rotate production TLS certificates")');
+    expect(stdin).toContain("\n- Sidebar\n");
+    expect(stdin).not.toContain('examples: "Self title must not leak"');
+    expect(stdin).not.toContain("Child thread excluded");
+    expect(stdin).not.toContain("Hidden thread excluded");
+
+    const failingHost = setupHost({
+      threads: [projectThread({ id: "thr_fallback", projectId: "proj_personal", title: "Enterprise follow-up" })],
+      listThreads: async () => {
+        throw new Error("list unavailable");
+      },
+    });
+    await plugin(failingHost.bb);
+    disposers.push(() => failingHost.harness.lifecycle.dispose());
+
+    const fallbackRes = await failingHost.harness.behavior.runCli(["classify", "--thread", "thr_fallback", "--json"]);
+    expect(fallbackRes.exitCode).toBe(0);
+    expect(failingHost.updated).toEqual([{ threadId: "thr_fallback", sectionId: "sec_sales" }]);
+    expect(claudeCall(2).stdin).toContain("\n- Sales\n");
+  });
+
+  it("queries examples per sectionId to avoid global page starvation and handles partial list failures", async () => {
+    const target = projectThread({
+      id: "thr_starved_target",
+      projectId: "proj_personal",
+      title: "Close annual contract",
+    });
+    const fillerUnsectioned = Array.from({ length: 220 }, (_, i) =>
+      projectThread({
+        id: `thr_unsec_${i}`,
+        projectId: "proj_alpha",
+        sectionId: null,
+        title: `Unsectioned noise ${i}`,
+        updatedAt: 1_000 + i,
+      }),
+    );
+    const salesThread = projectThread({
+      id: "thr_sales_tail",
+      projectId: "proj_zeta",
+      sectionId: "sec_sales",
+      title: "Enterprise deal desk",
+      updatedAt: 500,
+    });
+    const opsThread = projectThread({
+      id: "thr_ops_tail",
+      projectId: "proj_zeta",
+      sectionId: "sec_ops",
+      title: "Upgrade PostgreSQL cluster",
+      updatedAt: 450,
+    });
+    const allThreads = [target, ...fillerUnsectioned, salesThread, opsThread];
+    const recordedCalls: Array<Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0]> = [];
+
+    const { bb, harness } = setupHost({
+      threads: allThreads,
+      listThreads: async (args) => {
+        recordedCalls.push(args);
+        let filtered = allThreads;
+        if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
+        if (args?.unsectioned === true) filtered = filtered.filter((t) => t.sectionId === null);
+        return filtered.slice(args?.offset ?? 0, (args?.offset ?? 0) + (args?.limit ?? 100));
+      },
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_starved_target", "--dry-run", "--json"]);
+    expect(res.exitCode).toBe(0);
+    const stdin = claudeCall(1).stdin;
+    expect(stdin).toContain('- Sales (examples: "Enterprise deal desk")');
+    expect(stdin).toContain('- Ops & Infra (examples: "Upgrade PostgreSQL cluster")');
+    expect(stdin).toContain("\n- Sidebar\n");
+    expect(recordedCalls.map((call) => call?.sectionId).sort()).toEqual(["sec_ops", "sec_sales", "sec_sidebar"]);
+    expect(recordedCalls.every((call) => call?.limit === 40)).toBe(true);
+
+    const partialHost = setupHost({
+      threads: [target, salesThread, opsThread],
+      listThreads: async (args) => {
+        if (args?.sectionId === "sec_ops") throw new Error("ops query failed");
+        return [target, salesThread, opsThread].filter((t) => !args?.sectionId || t.sectionId === args.sectionId);
+      },
+    });
+    await plugin(partialHost.bb);
+    disposers.push(() => partialHost.harness.lifecycle.dispose());
+
+    const partialRes = await partialHost.harness.behavior.runCli([
+      "classify",
+      "--thread",
+      "thr_starved_target",
+      "--dry-run",
+      "--json",
+    ]);
+    expect(partialRes.exitCode).toBe(0);
+    const partialStdin = claudeCall(2).stdin;
+    expect(partialStdin).toContain('- Sales (examples: "Enterprise deal desk")');
+    expect(partialStdin).toContain("\n- Ops & Infra\n");
+  });
+
+  it("throttles automatic retries during failure cooldown, keeps CLI unblocked, and retries once cooldown expires", async () => {
+    let now = 1_700_000_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
     const t = projectThread({ id: "thr_retry", projectId: "proj_personal", title: "Enterprise sales" });
     const { bb, harness, updated } = setupHost({ threads: [t] });
     await plugin(bb);
@@ -349,8 +601,18 @@ describe("server auto-section classifier & CLI", () => {
     process.env.FAKE_CLAUDE_STDERR = "";
     process.env.FAKE_CLAUDE_STDOUT = "Sales";
     await triggerIdle(harness, t);
-    await vi.waitFor(() => expect(updated).toEqual([{ threadId: "thr_retry", sectionId: "sec_sales" }]));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(claudeCallCount()).toBe(1);
+    expect(updated).toEqual([]);
+
+    const cliDryRun = await harness.behavior.runCli(["classify", "--thread", "thr_retry", "--dry-run", "--json"]);
+    expect(cliDryRun.exitCode).toBe(0);
     expect(claudeCallCount()).toBe(2);
+
+    now += 5 * 60 * 1_000 + 1;
+    await triggerIdle(harness, t);
+    await vi.waitFor(() => expect(updated).toEqual([{ threadId: "thr_retry", sectionId: "sec_sales" }]));
+    expect(claudeCallCount()).toBe(3);
   });
 
   it("does not re-invoke claude after terminal assigned or unmatched decisions and respects autoClassifySections toggle", async () => {
@@ -475,5 +737,238 @@ describe("server auto-section classifier & CLI", () => {
       results: [{ threadId: "thr_a", status: "assigned", section: { id: "sec_sales" } }],
     });
     expect(updated).toEqual([{ threadId: "thr_a", sectionId: "sec_sales" }]);
+  });
+
+  it("matches non-personal project history via projectId query without per-section fetches, and falls back to model when split", async () => {
+    const smenaNew = projectThread({ id: "thr_smena_new", projectId: "proj_smena", title: "Review onboarding flow" });
+    const smenaHist1 = projectThread({
+      id: "thr_smena_1",
+      projectId: "proj_smena",
+      sectionId: "sec_ops",
+      title: "Fix onboarding deploy",
+    });
+    const smenaHist2 = projectThread({
+      id: "thr_smena_2",
+      projectId: "proj_smena",
+      sectionId: "sec_ops",
+      title: "Update onboarding webhook",
+    });
+    const splitNew = projectThread({ id: "thr_split_new", projectId: "proj_split", title: "Draft client proposal" });
+    const splitOps = projectThread({
+      id: "thr_split_1",
+      projectId: "proj_split",
+      sectionId: "sec_ops",
+      title: "Split infra task",
+    });
+    const splitSales = projectThread({
+      id: "thr_split_2",
+      projectId: "proj_split",
+      sectionId: "sec_sales",
+      title: "Split sales deck",
+    });
+    const allThreads = [smenaNew, smenaHist1, smenaHist2, splitNew, splitOps, splitSales];
+    const listCalls: Array<Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0]> = [];
+
+    const { bb, harness, updated } = setupHost({
+      threads: allThreads,
+      projects: [
+        {
+          ...standardProject(),
+          id: "proj_smena",
+          name: "smena-onboarding",
+          sources: [{ ...standardProject().sources[0]!, projectId: "proj_smena", path: "/workspace/smena-onboarding" }],
+          defaultExecutionOptions: null,
+          threads: [smenaNew, smenaHist1, smenaHist2],
+        },
+        {
+          ...standardProject(),
+          id: "proj_split",
+          name: "mixed-client",
+          sources: [{ ...standardProject().sources[0]!, projectId: "proj_split", path: "/workspace/mixed-client" }],
+          defaultExecutionOptions: null,
+          threads: [splitNew, splitOps, splitSales],
+        },
+      ],
+      listThreads: async (args) => {
+        listCalls.push(args);
+        let filtered = allThreads;
+        if (args?.projectId) filtered = filtered.filter((t) => t.projectId === args.projectId);
+        if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
+        return filtered.slice(args?.offset ?? 0, (args?.offset ?? 0) + (args?.limit ?? 100));
+      },
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const byHistory = await harness.behavior.runCli(["classify", "--thread", "thr_smena_new", "--json"]);
+    expect(byHistory.exitCode).toBe(0);
+    expect(JSON.parse(byHistory.stdout)).toMatchObject({
+      assigned: 1,
+      results: [{ threadId: "thr_smena_new", status: "assigned", method: "deterministic", section: { id: "sec_ops" } }],
+    });
+    expect(claudeCallCount()).toBe(0);
+    expect(updated).toEqual([{ threadId: "thr_smena_new", sectionId: "sec_ops" }]);
+    expect(listCalls).toHaveLength(1);
+    expect(listCalls[0]).toMatchObject({ projectId: "proj_smena", archived: false, hasParent: false, limit: 50 });
+    expect(listCalls[0]?.sectionId).toBeUndefined();
+
+    listCalls.length = 0;
+    const splitRes = await harness.behavior.runCli(["classify", "--thread", "thr_split_new", "--dry-run", "--json"]);
+    expect(splitRes.exitCode).toBe(0);
+    expect(JSON.parse(splitRes.stdout)).toMatchObject({
+      assigned: 1,
+      results: [
+        { threadId: "thr_split_new", status: "matched_dry_run", method: "model", section: { id: "sec_sales" } },
+      ],
+    });
+    expect(claudeCallCount()).toBe(1);
+    expect(listCalls).toHaveLength(1 + SECTIONS.length);
+    expect(listCalls[0]).toMatchObject({ projectId: "proj_split", limit: 50 });
+    expect(
+      listCalls
+        .slice(1)
+        .map((c) => c?.sectionId)
+        .sort(),
+    ).toEqual(["sec_ops", "sec_sales", "sec_sidebar"]);
+    expect(listCalls.slice(1).every((c) => c?.limit === 40)).toBe(true);
+  });
+
+  it("does not starve non-personal project history when many Personal threads sit ahead in the same section", async () => {
+    const personalInOps = Array.from({ length: 15 }, (_, i) =>
+      projectThread({
+        id: `thr_pers_ops_${i}`,
+        projectId: "proj_personal",
+        sectionId: "sec_ops",
+        title: `Personal ops note ${i}`,
+      }),
+    );
+    const weconnHist = Array.from({ length: 3 }, (_, i) =>
+      projectThread({
+        id: `thr_weconn_hist_${i}`,
+        projectId: "proj_weconn",
+        sectionId: "sec_ops",
+        title: `WeConn task ${i}`,
+      }),
+    );
+    const weconnNew = projectThread({ id: "thr_weconn_new", projectId: "proj_weconn", title: "Deploy miniapp update" });
+    const allThreads = [...personalInOps, ...weconnHist, weconnNew];
+    const listCalls: Array<Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0]> = [];
+
+    const { bb, harness, updated } = setupHost({
+      threads: allThreads,
+      projects: [
+        {
+          ...standardProject(),
+          id: "proj_personal",
+          name: "Personal",
+          kind: "personal" as const,
+          defaultExecutionOptions: null,
+          threads: personalInOps,
+        },
+        {
+          ...standardProject(),
+          id: "proj_weconn",
+          name: "weconn-miniapp",
+          sources: [{ ...standardProject().sources[0]!, projectId: "proj_weconn", path: "/workspace/weconn-miniapp" }],
+          defaultExecutionOptions: null,
+          threads: [...weconnHist, weconnNew],
+        },
+      ],
+      listThreads: async (args) => {
+        listCalls.push(args);
+        let filtered = allThreads;
+        if (args?.projectId) filtered = filtered.filter((t) => t.projectId === args.projectId);
+        if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
+        return filtered.slice(args?.offset ?? 0, (args?.offset ?? 0) + (args?.limit ?? 100));
+      },
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_weconn_new", "--json"]);
+    expect(res.exitCode).toBe(0);
+    expect(JSON.parse(res.stdout)).toMatchObject({
+      assigned: 1,
+      results: [
+        { threadId: "thr_weconn_new", status: "assigned", method: "deterministic", section: { id: "sec_ops" } },
+      ],
+    });
+    expect(updated).toEqual([{ threadId: "thr_weconn_new", sectionId: "sec_ops" }]);
+    expect(claudeCallCount()).toBe(0);
+    expect(listCalls).toHaveLength(1);
+    expect(listCalls[0]).toMatchObject({ projectId: "proj_weconn", archived: false, hasParent: false, limit: 50 });
+    expect(listCalls.some((call) => call?.sectionId !== undefined)).toBe(false);
+  });
+
+  it("tags non-personal example projects, omits personal tags, and redacts secrets in prompts sent to claude", async () => {
+    const target = projectThread({
+      id: "thr_secret",
+      projectId: "proj_personal",
+      title: "Check API auth",
+    });
+    const weconnExample = projectThread({
+      id: "thr_weconn_1",
+      projectId: "proj_weconn",
+      sectionId: "sec_sales",
+      title: "Miniapp payment funnel",
+      updatedAt: 500,
+    });
+    const personalExample = projectThread({
+      id: "thr_pers_1",
+      projectId: "proj_personal",
+      sectionId: "sec_ops",
+      title: "Renew VPN config",
+      updatedAt: 400,
+    });
+    const threads = [target, weconnExample, personalExample];
+
+    const { bb, harness } = setupHost({
+      threads,
+      projects: [
+        {
+          ...standardProject(),
+          id: "proj_personal",
+          name: "Personal",
+          kind: "personal" as const,
+          defaultExecutionOptions: null,
+          threads: [target, personalExample],
+        },
+        {
+          ...standardProject(),
+          id: "proj_weconn",
+          name: "weconn-miniapp",
+          sources: [{ ...standardProject().sources[0]!, projectId: "proj_weconn", path: "/workspace/weconn-miniapp" }],
+          defaultExecutionOptions: null,
+          threads: [weconnExample],
+        },
+      ],
+      eventsForThread: (threadId) => [
+        {
+          id: "ev_secret",
+          seq: 1,
+          threadId,
+          createdAt: 1,
+          scope: { kind: "thread" as const },
+          type: "client/turn/requested" as const,
+          data: {
+            prompt:
+              "Debug https://api.merlinmachines.com/health with Authorization: Bearer dmcp_secret1234567890 and sk-live-secret1234567890",
+          },
+        },
+      ],
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_secret", "--dry-run", "--json"]);
+    expect(res.exitCode).toBe(0);
+    const stdin = claudeCall(1).stdin;
+    expect(stdin).toContain('- Sales (examples: "[project: weconn-miniapp] Miniapp payment funnel")');
+    expect(stdin).toContain('- Ops & Infra (examples: "Renew VPN config")');
+    expect(stdin).not.toContain("[project: Personal]");
+    expect(stdin).toContain("https://api.merlinmachines.com/health");
+    expect(stdin).toContain("Authorization: Bearer [REDACTED]");
+    expect(stdin).not.toContain("dmcp_secret1234567890");
+    expect(stdin).not.toContain("sk-live-secret1234567890");
   });
 });

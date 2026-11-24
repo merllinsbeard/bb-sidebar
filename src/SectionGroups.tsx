@@ -71,7 +71,7 @@ export function SectionGroups({
     <ul
       ref={attachListMotionRef}
       data-section-groups=""
-      className="mt-0.5 ml-1.5 flex flex-col gap-1 border-l border-sidebar-border/45 pl-1.5"
+      className="mt-0.5 ml-1.5 flex flex-col gap-1 border-l border-sidebar-border/60 pl-1.5"
     >
       {groups.map((group) => (
         <ActiveSectionGroup key={group.id} group={group} onToggle={() => onToggle(group.id)}>

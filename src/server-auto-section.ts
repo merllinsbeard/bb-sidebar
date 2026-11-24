@@ -1,16 +1,30 @@
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import {
+  CLAUDE_SYSTEM_PROMPT,
+  type SectionCandidate,
+  type SectionExampleThread,
+  buildClassificationPrompt,
+  collectSectionExamples,
+  extractFirstUserPrompt,
+  isVisibleRootThread,
+  matchSectionByProjectHistory,
+  matchSectionDeterministic,
+  parseClassifiedSection,
+} from "./server-auto-section-prompt";
 import type { ServerContext } from "./server-context";
 import type { createServerSettings } from "./server-settings";
 
+export { matchSectionDeterministic, parseClassifiedSection };
+
 const RECOVERY_DELAY_MS = 4_000;
+const RETRY_COOLDOWN_MS = 5 * 60 * 1_000;
 const MAX_CONCURRENT_CLASSIFICATIONS = 1;
 const CLASSIFIER_TIMEOUT_MS = 30_000;
-const MAX_PROMPT_CHARS = 1_200;
+const PROJECT_HISTORY_FETCH_LIMIT = 50;
+const SECTION_EXAMPLE_FETCH_LIMIT = 40;
 
-const CLAUDE_SYSTEM_PROMPT =
-  "You classify threads into one exact section name from the provided list, or NONE. Reply with only the exact section name or NONE.";
 const CLAUDE_ARGS = [
   "-p",
   "--safe-mode",
@@ -33,11 +47,6 @@ export const AUTO_SECTION_MIGRATION = `CREATE TABLE IF NOT EXISTS section_classi
   thread_id TEXT PRIMARY KEY
 )`;
 
-export interface SectionCandidate {
-  readonly id: string;
-  readonly name: string;
-}
-
 export interface ClassifyThreadOptions {
   force?: boolean;
   dryRun?: boolean;
@@ -51,178 +60,32 @@ export interface SectionClassificationResult {
   section: SectionCandidate | null;
 }
 
-function normalizeLabel(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[_\s-]+/g, " ")
-    .replace(/\s+/g, " ");
-}
-
-function compactLabel(value: string): string {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
-}
-
-function pathBasename(pathValue: string | null | undefined): string | null {
-  if (!pathValue) return null;
-  const parts = pathValue
-    .trim()
-    .split(/[/\\]+/)
-    .filter((segment) => segment.length > 0);
-  return parts.at(-1) ?? null;
-}
-
-export function matchSectionDeterministic(
-  projectName: string | null | undefined,
-  isPersonal: boolean,
-  environmentPath: string | null | undefined,
-  sections: readonly SectionCandidate[],
-): SectionCandidate | null {
-  if (isPersonal || sections.length === 0) return null;
-  const candidates = [projectName, pathBasename(environmentPath)]
-    .map((value) => value?.trim() ?? "")
-    .filter((value) => value.length > 0);
-  if (candidates.length === 0) return null;
-
-  for (const candidate of candidates) {
-    const normalizedCandidate = normalizeLabel(candidate);
-    const exact = sections.find((section) => normalizeLabel(section.name) === normalizedCandidate);
-    if (exact) return exact;
-  }
-
-  for (const candidate of candidates) {
-    const compactedCandidate = compactLabel(candidate);
-    if (compactedCandidate.length === 0) continue;
-    const compact = sections.find((section) => compactLabel(section.name) === compactedCandidate);
-    if (compact) return compact;
-  }
-
-  return null;
-}
-
-function stripFormatting(value: string): string {
-  let cleaned = value.trim();
-  cleaned = cleaned.replace(/^```[\w-]*\s*/u, "").replace(/\s*```$/u, "");
-  cleaned = cleaned.replace(/^(?:section|category)\s*:\s*/iu, "");
-  cleaned = cleaned.replace(/^[`"'«»*_\s]+|[`"'«»*_\s]+$/gu, "").trim();
-  return cleaned;
-}
-
-export function parseClassifiedSection(
-  rawOutput: string | null | undefined,
-  sections: readonly SectionCandidate[],
-): SectionCandidate | null {
-  if (!rawOutput || sections.length === 0) return null;
-  const lines = rawOutput
-    .split(/\r?\n/)
-    .map((line) => stripFormatting(line))
-    .filter((line) => line.length > 0);
-  if (lines.length === 0) return null;
-
-  const first = lines[0]!;
-  if (/^none$/iu.test(first)) return null;
-
-  const byLower = new Map(sections.map((section) => [section.name.trim().toLowerCase(), section] as const));
-  const exactFirst = byLower.get(first.toLowerCase());
-  if (exactFirst) return exactFirst;
-
-  const last = lines.at(-1)!;
-  if (/^none$/iu.test(last)) return null;
-  return byLower.get(last.toLowerCase()) ?? null;
-}
-
-function extractTextParts(parts: unknown): string {
-  if (!Array.isArray(parts)) return "";
-  return parts
-    .flatMap((part) => {
-      if (typeof part === "string") return [part];
-      if (part && typeof part === "object" && (part as { type?: unknown }).type === "text") {
-        const text = (part as { text?: unknown }).text;
-        return typeof text === "string" ? [text] : [];
-      }
-      return [];
-    })
-    .join("\n")
-    .trim();
-}
-
-function extractFirstUserPrompt(events: readonly unknown[]): string | null {
-  for (const raw of events) {
-    if (!raw || typeof raw !== "object") continue;
-    const event = raw as { type?: unknown; data?: Record<string, unknown> };
-    const data = event.data;
-    if (!data || typeof data !== "object") continue;
-
-    if (event.type === "item/started" || event.type === "item/completed") {
-      const item = data.item as { type?: unknown; content?: unknown } | undefined;
-      if (item?.type === "userMessage") {
-        const text = extractTextParts(item.content);
-        if (text) return text;
-      }
-    }
-    if (event.type === "client/thread/start" || event.type === "client/turn/start") {
-      const request = data.request as { params?: Record<string, unknown> } | undefined;
-      const params = request?.params;
-      if (params && typeof params === "object") {
-        const fromInput = extractTextParts(params.input);
-        if (fromInput) return fromInput;
-        if (typeof params.prompt === "string" && params.prompt.trim().length > 0) {
-          return params.prompt.trim();
-        }
-      }
-    }
-  }
-  return null;
-}
-
-function buildClassificationPrompt(
-  sections: readonly SectionCandidate[],
-  context: {
-    projectName: string | null;
-    isPersonal: boolean;
-    title: string | null;
-    titleFallback: string | null;
-    firstUserPrompt: string | null;
-  },
-): string {
-  const sectionList = sections.map((section) => `- ${section.name}`).join("\n");
-  const details = [
-    context.projectName ? `Project: ${context.projectName}${context.isPersonal ? " (personal)" : ""}` : null,
-    context.title ? `Title: ${context.title}` : null,
-    !context.title && context.titleFallback ? `Fallback title: ${context.titleFallback}` : null,
-    context.firstUserPrompt ? `First message:\n${context.firstUserPrompt}` : null,
-  ]
-    .filter((line): line is string => line !== null)
-    .join("\n")
-    .slice(0, MAX_PROMPT_CHARS);
-
-  return [
-    "Classify this thread into exactly one of the allowed sections below.",
-    "Reply with ONLY the exact section name from the list, or NONE if no section clearly fits.",
-    "Do not add explanations, quotes, markdown, or extra text.",
-    "",
-    "Allowed sections:",
-    sectionList,
-    "",
-    "Thread context:",
-    details,
-  ].join("\n");
-}
-
 async function resolveProjectContext(
   bb: BbPluginApi,
   projectId: string,
   environmentId: string | null,
   signal?: AbortSignal,
-): Promise<{ projectName: string | null; isPersonal: boolean; environmentPath: string | null }> {
+) {
   const projects = await bb.sdk.projects.list({ includePersonal: true, signal }).catch(() => null);
+  const projectNameById = new Map<string, string>();
+  const personalProjectIds = new Set<string>();
+  for (const entry of projects ?? []) {
+    if (entry.kind === "personal") {
+      personalProjectIds.add(entry.id);
+    } else if (entry.name.trim()) {
+      projectNameById.set(entry.id, entry.name.trim());
+    }
+  }
   const project = projects?.find((entry) => entry.id === projectId);
-  const projectName = project?.name ?? null;
-  const isPersonal = project?.kind === "personal";
   const defaultSource = project?.sources.find((source) => source.isDefault) ?? project?.sources[0];
   const environment = environmentId ? await bb.sdk.environments.get({ environmentId, signal }).catch(() => null) : null;
-  const environmentPath = environment?.path ?? defaultSource?.path ?? null;
-  return { projectName, isPersonal, environmentPath };
+  return {
+    projectName: project?.name ?? null,
+    isPersonal: project?.kind === "personal",
+    environmentPath: environment?.path ?? defaultSource?.path ?? null,
+    projectNameById,
+    personalProjectIds,
+  };
 }
 
 function runClaude(prompt: string, signal: AbortSignal): Promise<string> {
@@ -239,30 +102,19 @@ function runClaude(prompt: string, signal: AbortSignal): Promise<string> {
     });
     child.stdin.on("error", () => {});
     child.on("error", (error) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        reject(new Error("Claude Code CLI (`claude`) is not installed on PATH"));
-        return;
-      }
-      reject(error);
+      reject(
+        (error as NodeJS.ErrnoException).code === "ENOENT"
+          ? new Error("Claude Code CLI (`claude`) is not installed on PATH")
+          : error,
+      );
     });
     child.on("close", (code) => {
       const text = stdout.trim();
-      if (code === 0 && text !== "") {
-        resolve(text);
-        return;
-      }
-      if (code === 0) {
-        reject(new Error("Claude Code returned an empty reply"));
-        return;
-      }
+      if (code === 0 && text) return resolve(text);
+      if (code === 0) return reject(new Error("Claude Code returned an empty reply"));
       const detail = stderr.trim().slice(-500);
-      reject(
-        new Error(
-          detail
-            ? `Claude Code exited with code ${code}: ${detail}`
-            : `Claude Code exited with code ${code} and printed no error`,
-        ),
-      );
+      const suffix = detail ? `: ${detail}` : " and printed no error";
+      reject(new Error(`Claude Code exited with code ${code}${suffix}`));
     });
     child.stdin.end(prompt);
   });
@@ -276,12 +128,32 @@ export function createServerAutoSection(
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const queued = new Set<string>();
   const running = new Set<string>();
+  const failedCooldownUntil = new Map<string, number>();
   const controller = new AbortController();
   let disposed = false;
 
   const attempted = db.prepare("SELECT 1 FROM section_classification_attempts WHERE thread_id = ?");
   const recordAttempt = db.prepare("INSERT OR IGNORE INTO section_classification_attempts (thread_id) VALUES (?)");
   const release = db.prepare("DELETE FROM section_classification_attempts WHERE thread_id = ?");
+
+  async function assignSection(
+    threadId: string,
+    section: SectionCandidate,
+    method: "deterministic" | "model",
+    dryRun: boolean | undefined,
+  ): Promise<SectionClassificationResult> {
+    if (!dryRun) {
+      await bb.sdk.threads.update({ threadId, sectionId: section.id });
+      recordAttempt.run(threadId);
+      failedCooldownUntil.delete(threadId);
+    }
+    return {
+      threadId,
+      status: dryRun ? "matched_dry_run" : "assigned",
+      method,
+      section: { id: section.id, name: section.name },
+    };
+  }
 
   async function classifyThreadSection(
     threadId: string,
@@ -293,50 +165,73 @@ export function createServerAutoSection(
       bb.sdk.threadSections.list({ signal }),
     ]);
 
-    if (sections.length === 0) return { threadId, status: "skipped", reason: "no_sections", section: null };
-    if (thread.parentThreadId !== null) return { threadId, status: "skipped", reason: "child_thread", section: null };
-    if (thread.visibility !== "visible") return { threadId, status: "skipped", reason: "not_visible", section: null };
-    if (thread.archivedAt !== null) return { threadId, status: "skipped", reason: "archived", section: null };
-    if (thread.deletedAt !== null) return { threadId, status: "skipped", reason: "deleted", section: null };
-    if (!options.force && thread.sectionId !== null) {
-      return { threadId, status: "skipped", reason: "already_sectioned", section: null };
-    }
+    const skip = (reason: string): SectionClassificationResult => ({
+      threadId,
+      status: "skipped",
+      reason,
+      section: null,
+    });
+    if (sections.length === 0) return skip("no_sections");
+    if (thread.parentThreadId !== null) return skip("child_thread");
+    if (thread.visibility !== "visible") return skip("not_visible");
+    if (thread.archivedAt !== null) return skip("archived");
+    if (thread.deletedAt !== null) return skip("deleted");
+    if (!options.force && thread.sectionId !== null) return skip("already_sectioned");
 
-    const { projectName, isPersonal, environmentPath } = await resolveProjectContext(
-      bb,
-      thread.projectId,
-      thread.environmentId,
-      signal,
-    );
+    const { projectName, isPersonal, environmentPath, projectNameById, personalProjectIds } =
+      await resolveProjectContext(bb, thread.projectId, thread.environmentId, signal);
 
     const deterministic = matchSectionDeterministic(projectName, isPersonal, environmentPath, sections);
-    if (deterministic) {
-      if (!options.dryRun) {
-        await bb.sdk.threads.update({ threadId, sectionId: deterministic.id });
-        recordAttempt.run(threadId);
-      }
-      return {
-        threadId,
-        status: options.dryRun ? "matched_dry_run" : "assigned",
-        method: "deterministic",
-        section: { id: deterministic.id, name: deterministic.name },
-      };
+    if (deterministic) return assignSection(threadId, deterministic, "deterministic", options.dryRun);
+
+    if (!isPersonal) {
+      const projectThreads = await bb.sdk.threads
+        .list({
+          projectId: thread.projectId,
+          archived: false,
+          hasParent: false,
+          limit: PROJECT_HISTORY_FETCH_LIMIT,
+          signal,
+        })
+        .catch(() => [] as SectionExampleThread[]);
+      const byHistory = matchSectionByProjectHistory(thread.projectId, isPersonal, projectThreads, sections, threadId);
+      if (byHistory) return assignSection(threadId, byHistory, "deterministic", options.dryRun);
     }
 
     const firstUserPrompt = await bb.sdk.threads.events
       .list({ threadId, limit: "20", order: "asc", signal })
       .then(extractFirstUserPrompt, () => null);
 
-    if (!firstUserPrompt && !thread.title && !thread.titleFallback) {
-      return { threadId, status: "skipped", reason: "no_content", section: null };
-    }
+    if (!firstUserPrompt && !thread.title && !thread.titleFallback) return skip("no_content");
+
+    const perSection = await Promise.all(
+      sections.map((section) =>
+        bb.sdk.threads
+          .list({
+            sectionId: section.id,
+            archived: false,
+            hasParent: false,
+            limit: SECTION_EXAMPLE_FETCH_LIMIT,
+            signal,
+          })
+          .catch(() => [] as SectionExampleThread[]),
+      ),
+    );
+    const sectionExamples = collectSectionExamples(
+      perSection.flat(),
+      sections,
+      threadId,
+      projectNameById,
+      personalProjectIds,
+    );
 
     const prompt = buildClassificationPrompt(sections, {
       projectName,
       isPersonal,
       title: thread.title,
       titleFallback: thread.titleFallback,
-      firstUserPrompt: firstUserPrompt?.slice(0, MAX_PROMPT_CHARS) ?? null,
+      firstUserPrompt,
+      sectionExamples,
     });
 
     const rawOutput = await runClaude(prompt, signal);
@@ -345,20 +240,12 @@ export function createServerAutoSection(
     if (!matched) {
       if (!options.dryRun) {
         recordAttempt.run(threadId);
+        failedCooldownUntil.delete(threadId);
       }
       return { threadId, status: "unmatched", method: "model", section: null };
     }
 
-    if (!options.dryRun) {
-      await bb.sdk.threads.update({ threadId, sectionId: matched.id });
-      recordAttempt.run(threadId);
-    }
-    return {
-      threadId,
-      status: options.dryRun ? "matched_dry_run" : "assigned",
-      method: "model",
-      section: { id: matched.id, name: matched.name },
-    };
+    return assignSection(threadId, matched, "model", options.dryRun);
   }
 
   async function runAutomaticClassification(threadId: string) {
@@ -368,11 +255,9 @@ export function createServerAutoSection(
       await classifyThreadSection(threadId);
     } catch (error) {
       if (!disposed) {
-        bb.log.info(
-          `Automatic section classification did not complete for ${threadId}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+        failedCooldownUntil.set(threadId, Date.now() + RETRY_COOLDOWN_MS);
+        const detail = error instanceof Error ? error.message : String(error);
+        bb.log.info(`Automatic section classification did not complete for ${threadId}: ${detail}`);
       }
     }
   }
@@ -394,13 +279,11 @@ export function createServerAutoSection(
       disposed ||
       !settings.readSidebarSettings().autoClassifySections ||
       thread.sectionId !== null ||
-      thread.parentThreadId !== null ||
-      thread.visibility !== "visible" ||
-      thread.archivedAt !== null ||
-      thread.deletedAt !== null ||
+      !isVisibleRootThread(thread) ||
       timers.has(thread.id) ||
       queued.has(thread.id) ||
       running.has(thread.id) ||
+      (failedCooldownUntil.get(thread.id) ?? 0) > Date.now() ||
       attempted.get(thread.id)
     ) {
       return;
@@ -418,6 +301,7 @@ export function createServerAutoSection(
     clearTimeout(timers.get(thread.id));
     timers.delete(thread.id);
     queued.delete(thread.id);
+    failedCooldownUntil.delete(thread.id);
     release.run(thread.id);
   });
 
@@ -427,6 +311,7 @@ export function createServerAutoSection(
     for (const timer of timers.values()) clearTimeout(timer);
     timers.clear();
     queued.clear();
+    failedCooldownUntil.clear();
   });
 
   return { classifyThreadSection };
