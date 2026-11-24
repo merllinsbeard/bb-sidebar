@@ -22,7 +22,8 @@ const RECOVERY_DELAY_MS = 4_000;
 const RETRY_COOLDOWN_MS = 5 * 60 * 1_000;
 const MAX_CONCURRENT_CLASSIFICATIONS = 1;
 const CLASSIFIER_TIMEOUT_MS = 30_000;
-const SECTION_EXAMPLE_FETCH_LIMIT = 12;
+const PROJECT_HISTORY_FETCH_LIMIT = 50;
+const SECTION_EXAMPLE_FETCH_LIMIT = 40;
 
 const CLAUDE_ARGS = [
   "-p",
@@ -183,34 +184,17 @@ export function createServerAutoSection(
     const deterministic = matchSectionDeterministic(projectName, isPersonal, environmentPath, sections);
     if (deterministic) return assignSection(threadId, deterministic, "deterministic", options.dryRun);
 
-    let cachedSectionThreads: SectionExampleThread[] | null = null;
-    const loadSectionThreads = async () => {
-      if (cachedSectionThreads !== null) return cachedSectionThreads;
-      const perSection = await Promise.all(
-        sections.map((section) =>
-          bb.sdk.threads
-            .list({
-              sectionId: section.id,
-              archived: false,
-              hasParent: false,
-              limit: SECTION_EXAMPLE_FETCH_LIMIT,
-              signal,
-            })
-            .catch(() => [] as SectionExampleThread[]),
-        ),
-      );
-      cachedSectionThreads = perSection.flat();
-      return cachedSectionThreads;
-    };
-
     if (!isPersonal) {
-      const byHistory = matchSectionByProjectHistory(
-        thread.projectId,
-        isPersonal,
-        await loadSectionThreads(),
-        sections,
-        threadId,
-      );
+      const projectThreads = await bb.sdk.threads
+        .list({
+          projectId: thread.projectId,
+          archived: false,
+          hasParent: false,
+          limit: PROJECT_HISTORY_FETCH_LIMIT,
+          signal,
+        })
+        .catch(() => [] as SectionExampleThread[]);
+      const byHistory = matchSectionByProjectHistory(thread.projectId, isPersonal, projectThreads, sections, threadId);
       if (byHistory) return assignSection(threadId, byHistory, "deterministic", options.dryRun);
     }
 
@@ -220,8 +204,21 @@ export function createServerAutoSection(
 
     if (!firstUserPrompt && !thread.title && !thread.titleFallback) return skip("no_content");
 
+    const perSection = await Promise.all(
+      sections.map((section) =>
+        bb.sdk.threads
+          .list({
+            sectionId: section.id,
+            archived: false,
+            hasParent: false,
+            limit: SECTION_EXAMPLE_FETCH_LIMIT,
+            signal,
+          })
+          .catch(() => [] as SectionExampleThread[]),
+      ),
+    );
     const sectionExamples = collectSectionExamples(
-      await loadSectionThreads(),
+      perSection.flat(),
       sections,
       threadId,
       projectNameById,

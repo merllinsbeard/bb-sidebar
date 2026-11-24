@@ -203,6 +203,7 @@ describe("server auto-section classifier & CLI", () => {
               const all = projects.flatMap((p) => ("threads" in p ? p.threads : []));
               let filtered = all;
               if (args?.threadIds) filtered = filtered.filter((t) => args.threadIds!.includes(t.id));
+              if (args?.projectId) filtered = filtered.filter((t) => t.projectId === args.projectId);
               if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
               if (args?.unsectioned === true) filtered = filtered.filter((t) => t.sectionId === null);
               const offset = args?.offset ?? 0;
@@ -555,7 +556,7 @@ describe("server auto-section classifier & CLI", () => {
     expect(stdin).toContain('- Ops & Infra (examples: "Upgrade PostgreSQL cluster")');
     expect(stdin).toContain("\n- Sidebar\n");
     expect(recordedCalls.map((call) => call?.sectionId).sort()).toEqual(["sec_ops", "sec_sales", "sec_sidebar"]);
-    expect(recordedCalls.every((call) => call?.limit === 12)).toBe(true);
+    expect(recordedCalls.every((call) => call?.limit === 40)).toBe(true);
 
     const partialHost = setupHost({
       threads: [target, salesThread, opsThread],
@@ -738,7 +739,7 @@ describe("server auto-section classifier & CLI", () => {
     expect(updated).toEqual([{ threadId: "thr_a", sectionId: "sec_sales" }]);
   });
 
-  it("matches non-personal project history deterministically without invoking claude, and reuses per-section list on fallback", async () => {
+  it("matches non-personal project history via projectId query without per-section fetches, and falls back to model when split", async () => {
     const smenaNew = projectThread({ id: "thr_smena_new", projectId: "proj_smena", title: "Review onboarding flow" });
     const smenaHist1 = projectThread({
       id: "thr_smena_1",
@@ -790,7 +791,10 @@ describe("server auto-section classifier & CLI", () => {
       ],
       listThreads: async (args) => {
         listCalls.push(args);
-        return allThreads.filter((t) => !args?.sectionId || t.sectionId === args.sectionId);
+        let filtered = allThreads;
+        if (args?.projectId) filtered = filtered.filter((t) => t.projectId === args.projectId);
+        if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
+        return filtered.slice(args?.offset ?? 0, (args?.offset ?? 0) + (args?.limit ?? 100));
       },
     });
     await plugin(bb);
@@ -804,6 +808,9 @@ describe("server auto-section classifier & CLI", () => {
     });
     expect(claudeCallCount()).toBe(0);
     expect(updated).toEqual([{ threadId: "thr_smena_new", sectionId: "sec_ops" }]);
+    expect(listCalls).toHaveLength(1);
+    expect(listCalls[0]).toMatchObject({ projectId: "proj_smena", archived: false, hasParent: false, limit: 50 });
+    expect(listCalls[0]?.sectionId).toBeUndefined();
 
     listCalls.length = 0;
     const splitRes = await harness.behavior.runCli(["classify", "--thread", "thr_split_new", "--dry-run", "--json"]);
@@ -815,7 +822,82 @@ describe("server auto-section classifier & CLI", () => {
       ],
     });
     expect(claudeCallCount()).toBe(1);
-    expect(listCalls).toHaveLength(SECTIONS.length);
+    expect(listCalls).toHaveLength(1 + SECTIONS.length);
+    expect(listCalls[0]).toMatchObject({ projectId: "proj_split", limit: 50 });
+    expect(
+      listCalls
+        .slice(1)
+        .map((c) => c?.sectionId)
+        .sort(),
+    ).toEqual(["sec_ops", "sec_sales", "sec_sidebar"]);
+    expect(listCalls.slice(1).every((c) => c?.limit === 40)).toBe(true);
+  });
+
+  it("does not starve non-personal project history when many Personal threads sit ahead in the same section", async () => {
+    const personalInOps = Array.from({ length: 15 }, (_, i) =>
+      projectThread({
+        id: `thr_pers_ops_${i}`,
+        projectId: "proj_personal",
+        sectionId: "sec_ops",
+        title: `Personal ops note ${i}`,
+      }),
+    );
+    const weconnHist = Array.from({ length: 3 }, (_, i) =>
+      projectThread({
+        id: `thr_weconn_hist_${i}`,
+        projectId: "proj_weconn",
+        sectionId: "sec_ops",
+        title: `WeConn task ${i}`,
+      }),
+    );
+    const weconnNew = projectThread({ id: "thr_weconn_new", projectId: "proj_weconn", title: "Deploy miniapp update" });
+    const allThreads = [...personalInOps, ...weconnHist, weconnNew];
+    const listCalls: Array<Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0]> = [];
+
+    const { bb, harness, updated } = setupHost({
+      threads: allThreads,
+      projects: [
+        {
+          ...standardProject(),
+          id: "proj_personal",
+          name: "Personal",
+          kind: "personal" as const,
+          defaultExecutionOptions: null,
+          threads: personalInOps,
+        },
+        {
+          ...standardProject(),
+          id: "proj_weconn",
+          name: "weconn-miniapp",
+          sources: [{ ...standardProject().sources[0]!, projectId: "proj_weconn", path: "/workspace/weconn-miniapp" }],
+          defaultExecutionOptions: null,
+          threads: [...weconnHist, weconnNew],
+        },
+      ],
+      listThreads: async (args) => {
+        listCalls.push(args);
+        let filtered = allThreads;
+        if (args?.projectId) filtered = filtered.filter((t) => t.projectId === args.projectId);
+        if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
+        return filtered.slice(args?.offset ?? 0, (args?.offset ?? 0) + (args?.limit ?? 100));
+      },
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_weconn_new", "--json"]);
+    expect(res.exitCode).toBe(0);
+    expect(JSON.parse(res.stdout)).toMatchObject({
+      assigned: 1,
+      results: [
+        { threadId: "thr_weconn_new", status: "assigned", method: "deterministic", section: { id: "sec_ops" } },
+      ],
+    });
+    expect(updated).toEqual([{ threadId: "thr_weconn_new", sectionId: "sec_ops" }]);
+    expect(claudeCallCount()).toBe(0);
+    expect(listCalls).toHaveLength(1);
+    expect(listCalls[0]).toMatchObject({ projectId: "proj_weconn", archived: false, hasParent: false, limit: 50 });
+    expect(listCalls.some((call) => call?.sectionId !== undefined)).toBe(false);
   });
 
   it("tags non-personal example projects, omits personal tags, and redacts secrets in prompts sent to claude", async () => {
