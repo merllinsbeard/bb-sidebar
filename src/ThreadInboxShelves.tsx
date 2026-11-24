@@ -180,7 +180,7 @@ export function CollapsibleShelf({
 }
 
 /** A shelf's or group's folding chevron, on the same axis as every row's trailing glyph. */
-function HeaderChevron({ expanded, className }: { expanded: boolean; className: string }) {
+export function HeaderChevron({ expanded, className }: { expanded: boolean; className: string }) {
   return (
     <span className={TRAILING_GLYPH_BOX_CLASS}>
       <Icon

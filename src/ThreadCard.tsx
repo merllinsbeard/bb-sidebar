@@ -58,6 +58,7 @@ export interface ThreadReorderControls {
 export function ThreadCard({
   thread,
   showProject = true,
+  showSection = true,
   projectIconOnly = false,
   showEnvironment = true,
   isActive,
@@ -74,6 +75,8 @@ export function ThreadCard({
   thread: PluginSidebarThread;
   /** False when a group header already names the project. */
   showProject?: boolean;
+  /** False when a section group header already names the section. */
+  showSection?: boolean;
   projectIconOnly?: boolean;
   showEnvironment?: boolean;
   isActive: boolean;
@@ -110,7 +113,7 @@ export function ThreadCard({
   const provider = providerById.get(thread.providerId) ?? null;
   const projectName = projectNameById.get(thread.projectId) ?? null;
   const isPersonalProject = personalProjectIds.has(thread.projectId);
-  const section = thread.sectionId ? (sectionById.get(thread.sectionId) ?? null) : null;
+  const section = showSection && thread.sectionId ? (sectionById.get(thread.sectionId) ?? null) : null;
   const sectionColor = section ? sectionColorById.get(section.id) : undefined;
   const projectIconUrl = iconUrl(thread.projectId, projectIconRevision);
   const onPark = () => parkThread(thread);
@@ -288,7 +291,7 @@ export function ThreadCard({
               thread={thread}
               tone="normal"
               showProject={showProject && !isPersonalProject}
-              projectIconOnly={projectIconOnly}
+              projectIconOnly={projectIconOnly || childThreads.length > 0 || hasOpenPorts}
               projectName={projectName}
               projectIconUrl={projectIconUrl}
               projectColor={projectColor}
@@ -323,7 +326,7 @@ export function ThreadCard({
               leading={<ProviderGlyph providerId={thread.providerId} provider={provider} />}
               fadeContent
               trailing={
-                <span className="pointer-events-none relative flex shrink-0 items-center gap-1.5">
+                <span className="pointer-events-none relative flex shrink-0 items-center gap-1">
                   <OpenPortsIndicator thread={thread} />
                   {childThreads.length > 0 ? (
                     <ChildThreadBadge
@@ -332,6 +335,7 @@ export function ThreadCard({
                       expanded={childrenExpanded}
                       controls={childListId}
                       onToggle={onToggleChildren}
+                      compact
                     />
                   ) : null}
                   {shortcut ? (
@@ -409,6 +413,7 @@ export function ThreadCard({
                   <ProviderGlyph providerId={thread.providerId} provider={provider} />
                 </span>
                 {titleLine}
+                {metadata.showOpenPortsInline ? <OpenPortsIndicator thread={thread} /> : null}
                 {/* Show bb's thread shortcut in place of the status while the modifier is held. */}
                 {shortcut ? (
                   <span className={cn(STATUS_SLOT_CLASS, "w-auto")}>

@@ -34,7 +34,7 @@ function setup({
   enabled?: boolean;
   activeThreadId?: string | null;
 } = {}) {
-  localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+  localStorage.setItem("bb-sidebar:active-sort:v2", "project");
   if (enabled) localStorage.setItem("bb-sidebar:environment-grouping:v1", "true");
   let order = rows.filter((row) => !row.parentThreadId).map((row) => row.id);
   const save = vi.fn((input: unknown) => {

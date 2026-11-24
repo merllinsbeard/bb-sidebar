@@ -9,7 +9,7 @@ const order = "bb-sidebar:inbox-order-cache:v1";
 const lifecycle = "bb-sidebar:lifecycle-cache:v1";
 const children = "bb-sidebar:child-expansion:v1";
 const shelves = "bb-sidebar:shelf-expansion:v1";
-const sort = "bb-sidebar:active-sort:v1";
+const sort = "bb-sidebar:active-sort:v2";
 const settings = "bb-sidebar:settings-cache:v1";
 
 function limitStorage(characters: number) {

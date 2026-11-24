@@ -13,11 +13,13 @@ import type { ActiveSortMode, ProjectViewUnit } from "./inbox-layout";
 import { cn } from "./lib/utils";
 import { ActiveSortPicker } from "./ActiveSortPicker";
 import { ProjectScopeControls } from "./ProjectScopeControls";
+import { SectionGroups } from "./SectionGroups";
 import type { ThreadReorderControls } from "./ThreadCard";
 import type { createInboxThreadRenderer } from "./InboxThreadRenderer";
-import { useInboxActions } from "./InboxContext";
+import { useInboxActions, useInboxEnvironment } from "./InboxContext";
 import { SCROLL_FADE_CLASS } from "./useScrollFade";
 import type { useInboxProjectGroups } from "./useInboxProjectGroups";
+import type { useInboxSectionGroups } from "./useInboxSectionGroups";
 
 export interface ShelfExpansionState {
   active: boolean;
@@ -48,6 +50,7 @@ interface ThreadInboxViewProps {
   renderActiveThread: ReturnType<typeof createInboxThreadRenderer>;
   activeSortMode: ActiveSortMode;
   inboxProjectView: readonly ProjectViewUnit[];
+  sectionGrouping: Pick<ReturnType<typeof useInboxSectionGroups>, "groups" | "toggleSectionCollapse">;
   environmentGrouping: Pick<
     ReturnType<typeof useInboxProjectGroups>,
     | "groupEnvironments"
@@ -75,11 +78,13 @@ export function ThreadInboxView({
   renderActiveThread,
   activeSortMode,
   inboxProjectView,
+  sectionGrouping,
   environmentGrouping,
   reorderControls,
   sortedVisibleInbox,
   settledLimit,
 }: ThreadInboxViewProps) {
+  const { sections } = useInboxEnvironment();
   const { setExpandedShelves, setActiveSortMode, setSettledLimit } = useInboxActions();
   const { pinned, inbox, working, inactive, snoozed, parked, settled } = shelves;
   const hasLowerShelves =
@@ -148,6 +153,7 @@ export function ThreadInboxView({
                       <ActiveSortPicker
                         mode={activeSortMode}
                         onModeChange={setActiveSortMode}
+                        hasSections={sections.length > 0}
                         groupEnvironments={environmentGrouping.groupEnvironments}
                         onGroupEnvironmentsChange={environmentGrouping.setGroupEnvironments}
                         groupSingleThreadProjects={environmentGrouping.groupSingleThreadProjects}
@@ -162,6 +168,12 @@ export function ThreadInboxView({
                         reorderControls={(unit, name) =>
                           reorderControls(unit.key, "inbox", `${name} ${unit.environment ? "environment" : "project"}`)
                         }
+                        renderThread={(thread, options) => renderActiveThread(thread, "inbox", options)}
+                      />
+                    ) : activeSortMode === "section" && expandedShelves.active ? (
+                      <SectionGroups
+                        groups={sectionGrouping.groups}
+                        onToggle={sectionGrouping.toggleSectionCollapse}
                         renderThread={(thread, options) => renderActiveThread(thread, "inbox", options)}
                       />
                     ) : inbox.visibleThreads.length > 0 ? (

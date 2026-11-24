@@ -10,7 +10,7 @@ import { StatusOrTime, useStatusLimit, useWorkingForDisplay } from "./StatusSlot
 import { threadDisplayTitle } from "./inbox";
 import { snoozeWakeLabel } from "./lifecycle";
 import { useProjectColor } from "./ProjectColors";
-import { OpenPortsIndicator } from "./OpenPorts";
+import { OpenPortsIndicator, useHasOpenPorts } from "./OpenPorts";
 import { ShortcutHint } from "./bb-sdk";
 import { rowKeyshortcuts } from "./lib/keyshortcuts";
 import { cn } from "./lib/utils";
@@ -89,6 +89,8 @@ export const SlimRow = memo(function SlimRow({
   const rowLabel = labelPrefix ? `${labelPrefix} · ${title}` : title;
   const [isRenaming, setIsRenaming] = useState(false);
   const limit = useStatusLimit(thread);
+  const hasOpenPorts = useHasOpenPorts(thread);
+  const crowdedCompact = childThreads.length > 0 || hasOpenPorts;
 
   return (
     <RowContextMenu
@@ -108,6 +110,7 @@ export const SlimRow = memo(function SlimRow({
           thread={thread}
           tone="muted"
           showProject={showProject}
+          projectIconOnly={crowdedCompact}
           projectName={projectName}
           projectIconUrl={projectIconUrl}
           projectColor={projectColor}
@@ -127,19 +130,17 @@ export const SlimRow = memo(function SlimRow({
             />
           }
           trailing={
-            <>
+            <span className="pointer-events-none relative flex shrink-0 items-center gap-1">
               <OpenPortsIndicator thread={thread} />
               {childThreads.length > 0 ? (
-                // Positioned, so the chip sits above the row's full-bleed link.
-                <span className="pointer-events-none relative flex shrink-0 items-center">
-                  <ChildThreadBadge
-                    threads={childThreads}
-                    childrenByParent={childrenByParentId}
-                    expanded={childrenExpanded}
-                    controls={childListId}
-                    onToggle={() => toggleChildExpansion(thread.id)}
-                  />
-                </span>
+                <ChildThreadBadge
+                  threads={childThreads}
+                  childrenByParent={childrenByParentId}
+                  expanded={childrenExpanded}
+                  controls={childListId}
+                  onToggle={() => toggleChildExpansion(thread.id)}
+                  compact
+                />
               ) : null}
               {/* Size to the label so the port icon stays beside it. Keep enough
               room for the restore button, which replaces the label on hover.
@@ -189,7 +190,7 @@ export const SlimRow = memo(function SlimRow({
                   </Tooltip>
                 </span>
               )}
-            </>
+            </span>
           }
         />
         {showChildren ? (

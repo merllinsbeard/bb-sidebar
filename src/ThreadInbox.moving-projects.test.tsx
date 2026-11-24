@@ -27,7 +27,7 @@ describe("ThreadInbox", () => {
     it.each([null, "b"])(
       "collapses a project with children that need attention when the open thread is %s",
       async (activeThreadId) => {
-        window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+        window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
         renderSlot(
           inbox,
           { ...listProps, activeThreadId },
@@ -89,7 +89,7 @@ describe("ThreadInbox", () => {
     it.each(["keyboard", "pointer"].flatMap((gesture) => [false, true].map((singleton) => ({ gesture, singleton }))))(
       "reorders attention rows in the collapsed Active shelf: $gesture/singleton=$singleton",
       async ({ gesture, singleton }) => {
-        window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+        window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
         window.localStorage.setItem("bb-sidebar:shelf-expansion:v1", JSON.stringify({ active: false }));
         const childIds = ["a1", "a2", "a3", "b1", ...(singleton ? ["x1"] : [])];
         let storedIds = ["a", "x", "b", "c", ...childIds];
@@ -189,7 +189,7 @@ describe("ThreadInbox", () => {
     it.each(["keyboard", "pointer"])(
       "keeps hidden sibling slots in the collapsed Active shelf: %s",
       async (gesture) => {
-        window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+        window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
         window.localStorage.setItem("bb-sidebar:shelf-expansion:v1", JSON.stringify({ active: false }));
         const order = ["a", "hidden", "b", "ca", "cb"];
         const rendered = renderSlot(inbox, listProps, {
@@ -226,7 +226,7 @@ describe("ThreadInbox", () => {
       },
     );
     it.each(["keyboard", "pointer"])("F1 keeps unrepresented project slot: %s", async (gesture) => {
-      window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+      window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
       window.localStorage.setItem("bb-sidebar:shelf-expansion:v1", JSON.stringify({ active: false }));
       const order = ["a", "hidden-project", "x", "b", "ca", "cx"];
       const rendered = renderSlot(inbox, listProps, {
@@ -281,7 +281,7 @@ describe("ThreadInbox", () => {
     });
 
     it("F1 rebases participating siblings onto a pushed order without moving hidden slots", async () => {
-      window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+      window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
       window.localStorage.setItem("bb-sidebar:shelf-expansion:v1", JSON.stringify({ active: false }));
       let order = ["a", "hidden", "b", "z", "ca", "cb"];
       const rendered = renderSlot(inbox, listProps, {
@@ -324,7 +324,7 @@ describe("ThreadInbox", () => {
     });
 
     it.each(["singleton-grows", "source-joins-target"])("F2 cancels a vanished moving unit key: %s", async (change) => {
-      window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+      window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
       window.localStorage.setItem("bb-sidebar:shelf-expansion:v1", JSON.stringify({ active: false }));
       const rows = [
         thread({ id: "a", title: "a", projectId: "web", updatedAt: Date.now() }),
@@ -404,7 +404,7 @@ describe("ThreadInbox", () => {
     });
 
     it("F2 preserves the member-shrinks no-op", async () => {
-      window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+      window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
       window.localStorage.setItem("bb-sidebar:shelf-expansion:v1", JSON.stringify({ active: false }));
       const rows = [
         ...["a", "hidden", "b"].map((id) => thread({ id, title: id, projectId: "web", updatedAt: Date.now() })),
@@ -447,7 +447,7 @@ describe("ThreadInbox", () => {
     });
 
     it("keeps each project's slot while its threads settle and come back", async () => {
-      window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+      window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
       const settledRow = (threadId: string) => ({
         threadId,
         settledAt: Date.now(),
@@ -514,7 +514,7 @@ describe("ThreadInbox", () => {
     });
 
     function renderProjects(onReorder: (ids: string[]) => void) {
-      window.localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+      window.localStorage.setItem("bb-sidebar:active-sort:v2", "project");
       const storedIds = ["w1", "x", "w2", "y"];
       return renderSlot(inbox, listProps, {
         sidebarThreads: {

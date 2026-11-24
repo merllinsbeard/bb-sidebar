@@ -28,7 +28,7 @@ function openPicker() {
   fireEvent.keyDown(screen.getByRole("button", { name: "Sort active threads: Manual order" }), { key: "Enter" });
 }
 
-it.each(["Manual order", "Recent activity", "Waiting longest", "Date created"])(
+it.each(["Sections", "Manual order", "Recent activity", "Waiting longest", "Date created"])(
   "closes after a pointer click on %s",
   (name) => {
     openPicker();

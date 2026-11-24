@@ -104,7 +104,7 @@ describe("sortActiveThreads", () => {
     const tied = [...rows, thread({ id: "d", createdAt: 3, updatedAt: 5 })];
     expect(sortActiveThreads(tied, "created").map((row) => row.id)).toEqual(["d", "a", "b", "c"]);
   });
-  it.each(["manual", "project"] as const)("copies %s order unchanged", (mode) => {
+  it.each(["section", "manual", "project"] as const)("copies %s order unchanged", (mode) => {
     const result = sortActiveThreads(rows, mode);
     expect(result).toEqual(rows);
     expect(result).not.toBe(rows);
@@ -183,7 +183,7 @@ describe("expandProjectUnits", () => {
 });
 
 describe("isActiveSortMode", () => {
-  it.each(["manual", "activity", "created", "project"])("accepts %s", (mode) => {
+  it.each(["section", "manual", "activity", "waiting", "created", "project"])("accepts %s", (mode) => {
     expect(isActiveSortMode(mode)).toBe(true);
   });
   it.each(["", "Manual", "activity ", "updated"])("rejects %j", (mode) => {

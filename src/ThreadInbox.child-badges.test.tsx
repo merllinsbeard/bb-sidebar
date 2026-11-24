@@ -52,7 +52,7 @@ describe("ThreadInbox", () => {
       thread({ id: "child-3", title: "Three", parentThreadId: "parent" }),
       thread({ id: "child-4", title: "Four", parentThreadId: "parent" }),
       thread({ id: "child-5", title: "Five", parentThreadId: "parent" }),
-      thread({ id: "root", title: "No children" }),
+      thread({ id: "root", title: "No children", host: { id: "host_2", name: "merlinde" } }),
     ]);
 
     const badge = screen.getByRole("button", { name: "5 child threads" });
@@ -431,5 +431,93 @@ describe("ThreadInbox", () => {
       disc?.style.backgroundColor,
     );
     expect(row.getAttribute("aria-label")).toContain("Needs you");
+  });
+
+  it("omits child dots on compact rows while preserving count, status glyph, tooltip, and expand toggle", async () => {
+    const now = Date.now();
+    renderSlot(inbox, listProps, {
+      sidebarThreads: {
+        status: "ready",
+        threads: [
+          thread({ id: "full-parent", title: "Full parent", updatedAt: now }),
+          thread({
+            id: "full-child",
+            title: "Full child",
+            parentThreadId: "full-parent",
+            providerId: "claude-code",
+            updatedAt: now,
+          }),
+          thread({ id: "working-parent", title: "Working parent", indicator: "runtime", updatedAt: now }),
+          thread({
+            id: "working-child-1",
+            title: "Working child 1",
+            parentThreadId: "working-parent",
+            providerId: "codex",
+            indicator: "runtime",
+            updatedAt: now,
+          }),
+          thread({
+            id: "working-child-2",
+            title: "Working child 2",
+            parentThreadId: "working-parent",
+            providerId: "claude-code",
+            updatedAt: now,
+          }),
+          thread({ id: "settled-parent", title: "Settled parent", updatedAt: now }),
+          thread({
+            id: "settled-child",
+            title: "Settled child",
+            parentThreadId: "settled-parent",
+            providerId: "codex",
+            updatedAt: now,
+          }),
+        ],
+        projects: [{ id: "proj_1", name: "oracle-enterprise", isPersonal: false, href: "", settingsHref: "" }],
+      },
+      providers: { status: "ready", providers: childProviders },
+      rpc: {
+        getSidebarSettings: () => ({
+          ...defaultSidebarSettings,
+          inactiveThreadsEnabled: false,
+          workingShelf: true,
+          childIconStyle: "provider",
+        }),
+        listLifecycle: () => ({
+          rows: [{ threadId: "settled-parent", settledAt: now, snoozedUntil: null, snoozedAt: null }],
+        }),
+      },
+    });
+
+    // Full card retains leading provider dots inside ChildThreadBadge.
+    const fullRow = (await screen.findByRole("link", { name: "Full parent" })).closest("li")!;
+    const fullBadge = within(fullRow).getByRole("button", { name: "1 child thread" });
+    expect(fullBadge.querySelectorAll("[data-child-thread-dot]")).toHaveLength(1);
+
+    // Compact Working row omits dots but keeps count, tooltip/aria-label, status glyph, and expand toggle.
+    await waitFor(() => {
+      const workingRow = screen.getByRole("link", { name: "Working parent" }).closest("li")!;
+      expect(workingRow.querySelector("[data-compact-row]")).not.toBeNull();
+    });
+    const workingRow = screen.getByRole("link", { name: "Working parent" }).closest("li")!;
+    const workingBadge = within(workingRow).getByRole("button", { name: "2 child threads, 1 working" });
+    expect(workingBadge.querySelectorAll("[data-child-thread-dot]")).toHaveLength(0);
+    expect(workingBadge.getAttribute("data-child-status")).toBe("working");
+    expect(workingBadge.querySelector('[data-icon="Working"]')).not.toBeNull();
+    expect(workingBadge.textContent).toBe("2");
+    expect(workingBadge.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(workingBadge);
+    expect(workingBadge.getAttribute("aria-expanded")).toBe("true");
+    expect(await screen.findByText("Working child 1")).toBeDefined();
+    expect(screen.getByText("Working child 2")).toBeDefined();
+
+    // Compact SlimRow (Settled shelf) also omits child dots while keeping expand toggle.
+    fireEvent.click(screen.getByRole("button", { name: "Settled (1)" }));
+    const settledRow = (await screen.findByRole("link", { name: "oracle-enterprise · Settled parent" })).closest("li")!;
+    const settledBadge = within(settledRow).getByRole("button", { name: "1 child thread" });
+    expect(settledBadge.querySelectorAll("[data-child-thread-dot]")).toHaveLength(0);
+    expect(settledBadge.textContent).toBe("1");
+    fireEvent.click(settledBadge);
+    expect(await screen.findByText("Settled child")).toBeDefined();
   });
 });

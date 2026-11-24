@@ -10,6 +10,8 @@ export const STORAGE_KEYS = {
   childExpansion: { key: "bb-sidebar:child-expansion:v1", evictionPriority: 40 },
   // Collapsed project IDs.
   projectCollapse: { key: "bb-sidebar:project-collapse:v1", evictionPriority: 50 },
+  // Collapsed section group IDs in the Active shelf's section view.
+  sectionCollapse: { key: "bb-sidebar:section-collapse:v1", evictionPriority: 52 },
   // Selected projects in this window's session storage; empty means all.
   projectScope: { key: "bb-sidebar:project-scope:v1", evictionPriority: 85 },
   // Selected thread section filter on this device; empty means all.
@@ -25,7 +27,9 @@ export const STORAGE_KEYS = {
   // Shelf disclosure booleans.
   shelfExpansion: { key: "bb-sidebar:shelf-expansion:v1", evictionPriority: 60 },
   // Active shelf sort mode.
-  activeSort: { key: "bb-sidebar:active-sort:v1", evictionPriority: 70 },
+  activeSort: { key: "bb-sidebar:active-sort:v2", evictionPriority: 70 },
+  // Read-only legacy sort key superseded by v2 so Sections becomes the default.
+  legacyActiveSort: { key: "bb-sidebar:active-sort:v1", evictionPriority: 68 },
   // Last RPC sidebar settings.
   settings: { key: "bb-sidebar:settings-cache:v1", evictionPriority: 80 },
   // Read-only legacy project grouping migration.

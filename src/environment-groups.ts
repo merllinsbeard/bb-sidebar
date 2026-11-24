@@ -98,7 +98,10 @@ export function unitsAtScope(units: readonly ProjectUnit[], parentKey: string | 
 const ALERT_KINDS: readonly GroupAlert["kind"][] = ["failed", "needs-you", "done"];
 
 /** News among the threads a collapsed group hides, most urgent first. */
-function hiddenAlerts(threads: readonly PluginSidebarThread[], shown: readonly PluginSidebarThread[]): GroupAlert[] {
+export function hiddenGroupAlerts(
+  threads: readonly PluginSidebarThread[],
+  shown: readonly PluginSidebarThread[],
+): GroupAlert[] {
   const shownIds = new Set(shown.map((thread) => thread.id));
   const counts = new Map<ChildStatusKind | null, number>();
   for (const thread of threads) {
@@ -130,7 +133,7 @@ export function projectGroupView(
       ...unit,
       expanded,
       threadCount: unit.threads.length,
-      alerts: expanded ? [] : hiddenAlerts(unit.threads, threads),
+      alerts: expanded ? [] : hiddenGroupAlerts(unit.threads, threads),
       threads,
       children:
         expanded && unit.children

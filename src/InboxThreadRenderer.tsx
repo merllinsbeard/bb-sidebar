@@ -10,6 +10,7 @@ type ActiveShelfKind = "pinned" | "inbox";
 export type InboxThreadOptions = {
   reorderable?: boolean;
   showProject?: boolean;
+  showSection?: boolean;
   compact?: boolean;
   renameShelf?: "active" | "working" | "inactive";
   showEnvironment?: boolean;
@@ -27,6 +28,7 @@ const InboxThread = memo(function InboxThread({
   shelf,
   reorderable,
   showProject,
+  showSection,
   compact,
   renameShelf,
   showEnvironment,
@@ -40,6 +42,7 @@ const InboxThread = memo(function InboxThread({
   shelf: ActiveShelfKind;
   reorderable: boolean;
   showProject: boolean;
+  showSection: boolean;
   compact: boolean;
   renameShelf: "active" | "working" | "inactive";
   showEnvironment: boolean;
@@ -68,6 +71,7 @@ const InboxThread = memo(function InboxThread({
     <ThreadCard
       thread={thread}
       showProject={showProject}
+      showSection={showSection}
       projectIconOnly={renameShelf !== "inactive" && settings.compactProjectIconOnly}
       showEnvironment={showEnvironment}
       isActive={thread.id === activeThreadId}
@@ -111,6 +115,7 @@ export function createInboxThreadRenderer({
     {
       reorderable = true,
       showProject = true,
+      showSection = true,
       compact = false,
       renameShelf = "active",
       showEnvironment = true,
@@ -123,6 +128,7 @@ export function createInboxThreadRenderer({
       shelf={shelf}
       reorderable={reorderable}
       showProject={showProject}
+      showSection={showSection}
       compact={compact}
       renameShelf={renameShelf}
       showEnvironment={showEnvironment}

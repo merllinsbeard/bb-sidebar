@@ -124,6 +124,7 @@ export function ChildThreadBadge({
   expanded,
   controls,
   onToggle,
+  compact = false,
 }: {
   threads: readonly PluginSidebarThread[];
   /** When given, descendants count toward the status rollup (not the count). */
@@ -131,6 +132,8 @@ export function ChildThreadBadge({
   expanded: boolean;
   controls: string;
   onToggle: () => void;
+  /** Omit leading child dots on tight one-line rows so the thread title stays readable. */
+  compact?: boolean;
 }) {
   const visibleThreads = threads.filter((thread) => !thread.isArchived);
   const count = visibleThreads.length;
@@ -156,12 +159,13 @@ export function ChildThreadBadge({
           onToggle();
         }}
         className={cn(
-          "pointer-events-auto flex h-5 shrink-0 items-center gap-1 rounded-full px-1.5 text-xs font-medium",
+          "pointer-events-auto flex h-5 shrink-0 items-center rounded-full px-1.5 text-xs font-medium",
+          compact ? "gap-0.5" : "gap-1",
           "outline-none focus-visible:ring-1 focus-visible:ring-ring",
           childStatusBadgeClass(summary.dominant),
         )}
       >
-        <ChildThreadDots threads={threads} />
+        {!compact ? <ChildThreadDots threads={threads} /> : null}
         <span className="tabular-nums">{count}</span>
         {summary.dominant ? (
           <StatusGlyph
@@ -373,6 +377,10 @@ function ChildThreadRow({
         className={cn(
           "group/child flex w-full items-center rounded-md text-left transition-colors duration-150 ease-out motion-reduce:transition-none",
           "h-[var(--bb-sidebar-row-height,28px)] max-md:pointer-coarse:h-9",
+          // The open chat gets the same native selection state as an active parent card.
+          isActive
+            ? "bg-state-active bb-sidebar-selected-row text-sidebar-foreground hover:bg-state-active"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
           needsYou &&
             !isActive &&
             cn(
@@ -383,10 +391,6 @@ function ChildThreadRow({
               // transparent in light, where the cream band already reads.
               "shadow-[inset_2px_0_0_0_var(--bb-sidebar-needs-you-accent)]",
             ),
-          // The open chat gets the same native selection state as an active parent card.
-          isActive
-            ? "bg-state-active bb-sidebar-selected-row text-sidebar-foreground hover:bg-state-active"
-            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         )}
       >
         <ThreadDetailsTooltip thread={thread} disabled={isRenaming} isOpen={isActive}>
