@@ -65,8 +65,9 @@ describe("ThreadInbox", () => {
     const providerGlyph = within(parentCard!).getByRole("img", {
       name: "Codex",
     });
-    expect(badge.compareDocumentPosition(machine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(machine.compareDocumentPosition(providerGlyph) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Provider glyph leads the row; machine cue and child badge sit on the metadata subline.
+    expect(providerGlyph.compareDocumentPosition(machine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(machine.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("button", { name: /No children.*child/i })).toBeNull();
     expect(screen.queryByText("One")).toBeNull();
   });

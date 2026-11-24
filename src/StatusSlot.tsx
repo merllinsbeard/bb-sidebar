@@ -39,7 +39,7 @@ export const STATUS_SLOT_CLASS = "flex w-20 shrink-0 items-center justify-end";
  * each one on the same vertical axis, so right-aligning the boxes lines the
  * icons up instead of leaving them one or two pixels apart.
  */
-export const TRAILING_GLYPH_BOX_CLASS = "flex size-3.5 shrink-0 items-center justify-center";
+export const TRAILING_GLYPH_BOX_CLASS = "flex size-4 shrink-0 items-center justify-center";
 
 /**
  * A card's status slot while a provider limit shows, and its shelf controls.

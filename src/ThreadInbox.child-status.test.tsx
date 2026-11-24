@@ -81,7 +81,9 @@ describe("ThreadInbox", () => {
       name: "Open grandchild thread: Grandchild",
     });
     expect(grandchildRow.getAttribute("aria-current")).toBe("page");
-    expect(grandchildRow.closest("[data-child-thread-row]")?.className).toContain("bg-sidebar-accent");
+    const activeGrandchild = grandchildRow.closest("[data-child-thread-row]");
+    expect(activeGrandchild?.className).toContain("bg-state-active");
+    expect(activeGrandchild?.className).toContain("bb-sidebar-selected-row");
   });
 
   it("marks a child from another project than its parent", () => {

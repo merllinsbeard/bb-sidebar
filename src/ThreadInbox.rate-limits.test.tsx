@@ -369,9 +369,7 @@ describe("sidebar rate-limit recovery", () => {
     const link = await screen.findByRole("link", { name });
     await waitFor(() => expect(slot.inspection.rpcCalls.some((call) => call.method === "getThreadLimits")).toBe(true));
     await act(async () => {});
-    expect(screen.getByText(status).className).toContain(
-      row === "compact-all" && state === "runs" ? "sr-only" : "font-medium",
-    );
+    expect(screen.getByText(status).className).toContain("sr-only");
     expect(screen.queryByText("Limit reached")).toBeNull();
     expect(screen.queryByRole("button", { name: /for Limited work$/ })).toBeNull();
     if (row === "compact-all") return;

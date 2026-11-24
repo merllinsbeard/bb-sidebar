@@ -139,7 +139,10 @@ export function ProjectScopeSelect({
               aria-label={`Project scope: ${scopeLabel}`}
               title={scopeLabel}
               onKeyDown={handleTriggerKeyDown}
-              className="flex min-h-7 min-w-0 flex-1 items-center justify-between gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-muted-foreground outline-none transition-colors duration-150 hover:bg-sidebar-accent hover:duration-0"
+              className={cn(
+                "flex min-h-7 min-w-0 flex-1 items-center justify-between gap-1 rounded-md px-2 py-1 text-xs font-normal outline-none transition-colors duration-150 hover:bg-state-hover hover:text-sidebar-foreground hover:duration-0",
+                scope.length > 0 ? "text-sidebar-foreground" : "text-subtle-foreground",
+              )}
             >
               <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left">
                 {scope.length === 0
@@ -169,7 +172,7 @@ export function ProjectScopeSelect({
               aria-label="Reset project filter"
               title="Reset project filter"
               onClick={() => onScopeChange([])}
-              className="absolute right-7 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+              className="absolute right-7 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground outline-none hover:bg-state-hover hover:text-sidebar-foreground focus-visible:ring-1 focus-visible:ring-ring"
             >
               <Icon name="ArrowTurnBackward" className="size-3.5" aria-hidden />
             </button>

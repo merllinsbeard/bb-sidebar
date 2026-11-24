@@ -110,7 +110,7 @@ export function CleanSettledDialog({ threadIds, onNavigate }: { threadIds: strin
           event.stopPropagation();
           setOpen(true);
         }}
-        className="absolute bottom-1 right-[1.875rem] z-10 flex size-4 items-center justify-center rounded text-muted-foreground/40 hover:bg-sidebar-accent hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="absolute right-7 top-1/2 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground transition-colors hover:bg-state-hover hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <Icon name="Clean" className="size-3" aria-hidden />
       </button>

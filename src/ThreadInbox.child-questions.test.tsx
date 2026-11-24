@@ -77,7 +77,7 @@ describe("a child waiting on the user", () => {
     });
 
     const inactive = await screen.findByRole("region", { name: "Inactive" });
-    expect(within(inactive).getByText(/Inactive \(1\)/)).toBeDefined();
+    expect(within(inactive).getByRole("button", { name: "Inactive (1)" })).toBeDefined();
     const active = screen.getByRole("region", { name: "Active" });
     expect(within(active).getByText("Old tree")).toBeDefined();
     expect(within(active).queryByText("Old quiet")).toBeNull();
@@ -113,7 +113,7 @@ describe("a child waiting on the user", () => {
     });
 
     const snoozedShelf = await screen.findByRole("region", { name: "Snoozed" });
-    expect(within(snoozedShelf).getByText(/Snoozed \(1\)/)).toBeDefined();
+    expect(within(snoozedShelf).getByRole("button", { name: "Snoozed (1)" })).toBeDefined();
     const active = screen.getByRole("region", { name: "Active" });
     for (const shelf of shelved) {
       expect(within(active).getByText(`${shelf} parent`)).toBeDefined();

@@ -56,7 +56,9 @@ describe("ThreadInbox", () => {
       name: "Open child thread: Child A",
     });
     expect(activeRow.getAttribute("aria-current")).toBe("page");
-    expect(activeRow.closest("[data-child-thread-row]")?.className).toContain("bg-sidebar-accent");
+    const activeContainer = activeRow.closest("[data-child-thread-row]");
+    expect(activeContainer?.className).toContain("bg-state-active");
+    expect(activeContainer?.className).toContain("bb-sidebar-selected-row");
 
     fireEvent.click(badge);
     expect(badge.getAttribute("aria-expanded")).toBe("true");

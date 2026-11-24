@@ -305,7 +305,7 @@ function ChildThreadRows({
               id={descendantsId}
               aria-label={`${listLabel} of ${threadDisplayTitle(child)}`}
               data-grandchild-thread-list={depth === 1 ? "sidebar" : undefined}
-              className="ml-3 flex flex-col border-l border-border"
+              className="ml-3 flex flex-col gap-px border-l border-sidebar-border/60 pl-1"
             >
               {renderRows(visibleDescendants, depth + 1, path, child.projectId)}
             </ul>
@@ -320,7 +320,7 @@ function ChildThreadRows({
       aria-label="Child threads"
       data-child-thread-list="sidebar"
       onContextMenu={(event) => event.stopPropagation()}
-      className="ml-4 mt-1 flex flex-col border-l border-border"
+      className="ml-3.5 mt-0.5 flex flex-col gap-px border-l border-sidebar-border/60 pl-1"
     >
       {renderRows(visibleThreads, 1, new Set(), parentProjectId)}
     </ul>
@@ -371,8 +371,8 @@ function ChildThreadRow({
         data-child-thread-row=""
         data-active={isActive ? "true" : undefined}
         className={cn(
-          "group/child flex w-full items-center rounded-md text-left",
-          "h-7 hover:bg-sidebar-accent/60",
+          "group/child flex w-full items-center rounded-md text-left transition-colors duration-150 ease-out motion-reduce:transition-none",
+          "h-[var(--bb-sidebar-row-height,28px)] max-md:pointer-coarse:h-9",
           needsYou &&
             !isActive &&
             cn(
@@ -383,9 +383,10 @@ function ChildThreadRow({
               // transparent in light, where the cream band already reads.
               "shadow-[inset_2px_0_0_0_var(--bb-sidebar-needs-you-accent)]",
             ),
-          // The open chat gets the same tint as an active parent card, so the
-          // eye finds it in a long tree the way it finds a card in the list.
-          isActive && "bg-sidebar-accent hover:bg-sidebar-accent",
+          // The open chat gets the same native selection state as an active parent card.
+          isActive
+            ? "bg-state-active bb-sidebar-selected-row text-sidebar-foreground hover:bg-state-active"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         )}
       >
         <ThreadDetailsTooltip thread={thread} disabled={isRenaming} isOpen={isActive}>
@@ -411,7 +412,12 @@ function ChildThreadRow({
             <span className="flex size-3.5 shrink-0 items-center justify-center">
               <ChildThreadIcon thread={thread} discClassName="size-2 border-0" />
             </span>
-            <span className={cn("min-w-0 flex-1 truncate text-xs", isActive && "font-medium text-foreground")}>
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-xs leading-4 max-md:pointer-coarse:text-sm",
+                isActive ? "font-medium text-sidebar-foreground" : "text-sidebar-foreground/85",
+              )}
+            >
               <InlineThreadTitle
                 thread={thread}
                 editing={isRenaming}
