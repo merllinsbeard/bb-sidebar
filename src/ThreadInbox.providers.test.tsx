@@ -95,13 +95,14 @@ describe("ThreadInbox", () => {
     expect(screen.getAllByRole("img", { name: "Codex" })).toHaveLength(1);
   });
 
-  it("constrains custom provider image avatars to a crisp square", () => {
+  it("constrains custom provider image avatars to a crisp square matching the box", () => {
     render([thread({ providerId: "codex" })]);
 
     const glyph = screen.getByRole("img", { name: "Codex" });
+    expect(glyph.className).toContain("size-4");
     expect(glyph.className).toContain("overflow-hidden");
     expect(glyph.className).toContain("rounded-[4px]");
-    expect(glyph.className).toContain("[&_img]:!size-3.5");
+    expect(glyph.className).toContain("[&_img]:!size-full");
     expect(glyph.className).toContain("[&_img]:object-cover");
   });
 
