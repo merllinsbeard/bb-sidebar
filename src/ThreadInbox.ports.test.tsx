@@ -215,3 +215,35 @@ it("marks only the owning thread without a count and clears its icon when the po
   cleanup();
   vi.useRealTimers();
 });
+
+it("keeps a lone open-ports icon inline on line 1 without forcing a second metadata line", async () => {
+  const environment = {
+    id: "env_personal_ports",
+    name: null,
+    branchName: null,
+    workspaceDisplayKind: "other" as const,
+    path: null,
+    isWorktree: null,
+    providerId: null,
+  };
+  renderSlot(inbox, listProps, {
+    sidebarThreads: {
+      status: "ready",
+      threads: [thread({ id: "thr_lone_port", projectId: "proj_personal", title: "Analyze Workflow", environment })],
+      projects: [{ id: "proj_personal", name: "Personal", isPersonal: true, href: "", settingsHref: "" }],
+    },
+    rpc: {
+      listLifecycle: () => ({ rows: [] }),
+      getOpenPorts: () => ({
+        groups: [{ environmentId: environment.id, ports: [{ port: 3000, ownerThreadId: "thr_lone_port" }] }],
+      }),
+    },
+  });
+
+  const label = "Open ports started by this thread";
+  await waitFor(() => expect(screen.getByRole("img", { name: label })).toBeDefined());
+  const card = screen.getByRole("link", { name: "Analyze Workflow" }).closest("[data-parent-card]")!;
+  expect(card.getAttribute("data-row-metadata")).toBe("false");
+  expect(card.querySelector("[data-row-metadata-line]")).toBeNull();
+  expect(within(card as HTMLElement).getByRole("img", { name: label })).toBeDefined();
+});

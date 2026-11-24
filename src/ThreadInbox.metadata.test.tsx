@@ -137,7 +137,7 @@ describe("card metadata", () => {
     expect(screen.queryByText("Personal")).toBeNull();
   });
 
-  it("prefers the branch over the machine when both exist", async () => {
+  it("hides the machine icon on a branch row when all threads share one host", async () => {
     render([
       thread({
         id: "thr_b",
@@ -151,6 +151,33 @@ describe("card metadata", () => {
           isWorktree: true,
           providerId: null,
         },
+      }),
+    ]);
+    expect(await screen.findByText("bb/feature")).toBeDefined();
+    expect(screen.queryByText("Dev MacBook")).toBeNull();
+    expect(await screen.findByLabelText("Worktree branch")).toBeDefined();
+    expect(screen.queryByLabelText("Machine: Dev MacBook")).toBeNull();
+  });
+
+  it("prefers the branch over the machine name and keeps the machine icon across multiple hosts", async () => {
+    render([
+      thread({
+        id: "thr_b",
+        host: { id: "host_1", name: "Dev MacBook" },
+        environment: {
+          id: "env_1",
+          name: "Worktree",
+          branchName: "bb/feature",
+          workspaceDisplayKind: "managed-worktree",
+          path: null,
+          isWorktree: true,
+          providerId: null,
+        },
+      }),
+      thread({
+        id: "thr_remote",
+        title: "Remote thread",
+        host: { id: "host_2", name: "merlinde" },
       }),
     ]);
     expect(await screen.findByText("bb/feature")).toBeDefined();

@@ -19,13 +19,15 @@ interface RowMetadataModel {
   hasWorkflows: boolean;
   hasBackgroundAgents: boolean;
   hasOpenPorts: boolean;
+  showOpenPortsInline: boolean;
   hasPullRequest: boolean;
   hasAny: boolean;
 }
 
 /**
  * Resolves which compact metadata items earn a second line under a thread title.
- * When `hasAny` is false the card collapses to a single native-height row.
+ * When `hasAny` is false the card collapses to a single native-height row and
+ * any open-ports icon moves inline onto the title row.
  */
 export function describeRowMetadata({
   thread,
@@ -54,7 +56,7 @@ export function describeRowMetadata({
   const showSection = hasSection;
   const showBranch = showEnvironment && Boolean(thread.environment?.branchName);
   const showHost = showEnvironment && !showBranch && hasMultipleHosts && Boolean(thread.host);
-  const showMachineIcon = showBranch && Boolean(thread.host);
+  const showMachineIcon = showBranch && hasMultipleHosts && Boolean(thread.host);
   const hasChildren = childCount > 0;
   const hasWorkflows = thread.activity.workflows > 0;
   const hasBackgroundAgents = thread.activity.backgroundAgents > 0;
@@ -66,8 +68,8 @@ export function describeRowMetadata({
     hasChildren ||
     hasWorkflows ||
     hasBackgroundAgents ||
-    hasOpenPorts ||
     hasPullRequest;
+  const showOpenPortsInline = hasOpenPorts && !hasAny;
   return {
     showProjectIdentity,
     showSection,
@@ -78,6 +80,7 @@ export function describeRowMetadata({
     hasWorkflows,
     hasBackgroundAgents,
     hasOpenPorts,
+    showOpenPortsInline,
     hasPullRequest,
     hasAny,
   };

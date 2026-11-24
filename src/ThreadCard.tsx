@@ -409,6 +409,7 @@ export function ThreadCard({
                   <ProviderGlyph providerId={thread.providerId} provider={provider} />
                 </span>
                 {titleLine}
+                {metadata.showOpenPortsInline ? <OpenPortsIndicator thread={thread} /> : null}
                 {/* Show bb's thread shortcut in place of the status while the modifier is held. */}
                 {shortcut ? (
                   <span className={cn(STATUS_SLOT_CLASS, "w-auto")}>
