@@ -29,9 +29,15 @@ function ActiveSectionGroup({
           style={colorStyle}
           className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-xs font-normal leading-5 text-subtle-foreground/75 transition-colors hover:text-sidebar-foreground"
         >
-          {!group.isUnsorted ? (
+          {group.isUnsorted ? (
+            <span
+              aria-hidden="true"
+              data-section-unsorted-dot=""
+              className="size-1.5 shrink-0 rounded-full border border-subtle-foreground/50"
+            />
+          ) : (
             <span aria-hidden="true" className="bb-sidebar-section-dot size-1.5 shrink-0 rounded-full" />
-          ) : null}
+          )}
           <span className="min-w-0 truncate">{group.name}</span>
           <span className="shrink-0 text-xs font-normal tabular-nums text-subtle-foreground/55">
             {group.threadCount}
@@ -50,7 +56,6 @@ function ActiveSectionGroup({
   );
 }
 
-/** Native-style collapsible section groups under the Active shelf. */
 export function SectionGroups({
   groups,
   onToggle,
@@ -63,7 +68,11 @@ export function SectionGroups({
   const attachListMotionRef = useListMotion<HTMLUListElement>();
   if (groups.length === 0) return null;
   return (
-    <ul ref={attachListMotionRef} className="flex flex-col gap-px">
+    <ul
+      ref={attachListMotionRef}
+      data-section-groups=""
+      className="mt-0.5 ml-1.5 flex flex-col gap-1 border-l border-sidebar-border/45 pl-1.5"
+    >
       {groups.map((group) => (
         <ActiveSectionGroup key={group.id} group={group} onToggle={() => onToggle(group.id)}>
           {group.threads.map((thread) =>

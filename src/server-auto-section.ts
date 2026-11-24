@@ -1,11 +1,33 @@
+import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { ServerContext } from "./server-context";
 import type { createServerSettings } from "./server-settings";
 
 const RECOVERY_DELAY_MS = 4_000;
 const MAX_CONCURRENT_CLASSIFICATIONS = 1;
-const HELPER_WAIT_TIMEOUT_MS = 25_000;
+const CLASSIFIER_TIMEOUT_MS = 30_000;
 const MAX_PROMPT_CHARS = 1_200;
+
+const CLAUDE_SYSTEM_PROMPT =
+  "You classify threads into one exact section name from the provided list, or NONE. Reply with only the exact section name or NONE.";
+const CLAUDE_ARGS = [
+  "-p",
+  "--safe-mode",
+  "--model",
+  "haiku",
+  "--setting-sources",
+  "",
+  "--strict-mcp-config",
+  "--mcp-config",
+  '{"mcpServers":{}}',
+  "--tools",
+  "",
+  "--disable-slash-commands",
+  "--no-session-persistence",
+  "--system-prompt",
+  CLAUDE_SYSTEM_PROMPT,
+];
 
 export const AUTO_SECTION_MIGRATION = `CREATE TABLE IF NOT EXISTS section_classification_attempts (
   thread_id TEXT PRIMARY KEY
@@ -50,10 +72,6 @@ function pathBasename(pathValue: string | null | undefined): string | null {
   return parts.at(-1) ?? null;
 }
 
-/**
- * Match a non-personal project's name or workspace folder slug directly to a
- * live section name without spending an AI call.
- */
 export function matchSectionDeterministic(
   projectName: string | null | undefined,
   isPersonal: boolean,
@@ -90,10 +108,6 @@ function stripFormatting(value: string): string {
   return cleaned;
 }
 
-/**
- * Strictly match model output against live section names. Returns null for
- * NONE, empty output, or any unrecognized label.
- */
 export function parseClassifiedSection(
   rawOutput: string | null | undefined,
   sections: readonly SectionCandidate[],
@@ -201,31 +215,57 @@ async function resolveProjectContext(
   environmentId: string | null,
   signal?: AbortSignal,
 ): Promise<{ projectName: string | null; isPersonal: boolean; environmentPath: string | null }> {
-  let projectName: string | null = null;
-  let isPersonal = false;
-  let environmentPath: string | null = null;
-  try {
-    const projects = await bb.sdk.projects.list({ includePersonal: true, signal });
-    const project = projects.find((entry) => entry.id === projectId);
-    if (project) {
-      projectName = project.name;
-      isPersonal = project.kind === "personal";
-      const defaultSource = project.sources.find((source) => source.isDefault) ?? project.sources[0];
-      environmentPath = defaultSource?.path ?? null;
-    }
-  } catch {
-    // Missing project metadata falls back to prompt-based classification.
-  }
-
-  if (environmentId) {
-    try {
-      const environment = await bb.sdk.environments.get({ environmentId, signal });
-      if (environment.path) environmentPath = environment.path;
-    } catch {
-      // Keep the project source path if the environment lookup fails.
-    }
-  }
+  const projects = await bb.sdk.projects.list({ includePersonal: true, signal }).catch(() => null);
+  const project = projects?.find((entry) => entry.id === projectId);
+  const projectName = project?.name ?? null;
+  const isPersonal = project?.kind === "personal";
+  const defaultSource = project?.sources.find((source) => source.isDefault) ?? project?.sources[0];
+  const environment = environmentId ? await bb.sdk.environments.get({ environmentId, signal }).catch(() => null) : null;
+  const environmentPath = environment?.path ?? defaultSource?.path ?? null;
   return { projectName, isPersonal, environmentPath };
+}
+
+function runClaude(prompt: string, signal: AbortSignal): Promise<string> {
+  const runSignal = AbortSignal.any([signal, AbortSignal.timeout(CLASSIFIER_TIMEOUT_MS)]);
+  return new Promise((resolve, reject) => {
+    const child = spawn("claude", CLAUDE_ARGS, { cwd: tmpdir(), signal: runSignal });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.stdin.on("error", () => {});
+    child.on("error", (error) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        reject(new Error("Claude Code CLI (`claude`) is not installed on PATH"));
+        return;
+      }
+      reject(error);
+    });
+    child.on("close", (code) => {
+      const text = stdout.trim();
+      if (code === 0 && text !== "") {
+        resolve(text);
+        return;
+      }
+      if (code === 0) {
+        reject(new Error("Claude Code returned an empty reply"));
+        return;
+      }
+      const detail = stderr.trim().slice(-500);
+      reject(
+        new Error(
+          detail
+            ? `Claude Code exited with code ${code}: ${detail}`
+            : `Claude Code exited with code ${code} and printed no error`,
+        ),
+      );
+    });
+    child.stdin.end(prompt);
+  });
 }
 
 export function createServerAutoSection(
@@ -240,7 +280,7 @@ export function createServerAutoSection(
   let disposed = false;
 
   const attempted = db.prepare("SELECT 1 FROM section_classification_attempts WHERE thread_id = ?");
-  const claim = db.prepare("INSERT OR IGNORE INTO section_classification_attempts (thread_id) VALUES (?)");
+  const recordAttempt = db.prepare("INSERT OR IGNORE INTO section_classification_attempts (thread_id) VALUES (?)");
   const release = db.prepare("DELETE FROM section_classification_attempts WHERE thread_id = ?");
 
   async function classifyThreadSection(
@@ -273,6 +313,7 @@ export function createServerAutoSection(
     if (deterministic) {
       if (!options.dryRun) {
         await bb.sdk.threads.update({ threadId, sectionId: deterministic.id });
+        recordAttempt.run(threadId);
       }
       return {
         threadId,
@@ -282,13 +323,9 @@ export function createServerAutoSection(
       };
     }
 
-    let firstUserPrompt: string | null = null;
-    try {
-      const events = await bb.sdk.threads.events.list({ threadId, limit: "20", order: "asc", signal });
-      firstUserPrompt = extractFirstUserPrompt(events);
-    } catch {
-      // Fall back to thread title if events cannot be read.
-    }
+    const firstUserPrompt = await bb.sdk.threads.events
+      .list({ threadId, limit: "20", order: "asc", signal })
+      .then(extractFirstUserPrompt, () => null);
 
     if (!firstUserPrompt && !thread.title && !thread.titleFallback) {
       return { threadId, status: "skipped", reason: "no_content", section: null };
@@ -302,38 +339,19 @@ export function createServerAutoSection(
       firstUserPrompt: firstUserPrompt?.slice(0, MAX_PROMPT_CHARS) ?? null,
     });
 
-    const helper = await bb.sdk.threads.spawn({
-      projectId: thread.projectId,
-      environment: thread.environmentId
-        ? { type: "reuse", environmentId: thread.environmentId }
-        : { type: "project-default" },
-      prompt,
-      visibility: "hidden",
-      providerId: "antigravity",
-      model: "gemini-4-hydrogen",
-      reasoningLevel: "low",
-    });
-
-    let matched: SectionCandidate | null = null;
-    try {
-      await bb.sdk.threads.wait({
-        threadId: helper.id,
-        status: "idle",
-        timeoutMs: HELPER_WAIT_TIMEOUT_MS,
-        signal,
-      });
-      const { output } = await bb.sdk.threads.output({ threadId: helper.id, signal });
-      matched = parseClassifiedSection(output, sections);
-    } finally {
-      await bb.sdk.threads.delete({ threadId: helper.id, childThreadsConfirmed: true }).catch(() => undefined);
-    }
+    const rawOutput = await runClaude(prompt, signal);
+    const matched = parseClassifiedSection(rawOutput, sections);
 
     if (!matched) {
+      if (!options.dryRun) {
+        recordAttempt.run(threadId);
+      }
       return { threadId, status: "unmatched", method: "model", section: null };
     }
 
     if (!options.dryRun) {
       await bb.sdk.threads.update({ threadId, sectionId: matched.id });
+      recordAttempt.run(threadId);
     }
     return {
       threadId,
@@ -346,7 +364,7 @@ export function createServerAutoSection(
   async function runAutomaticClassification(threadId: string) {
     try {
       if (disposed || !settings.readSidebarSettings().autoClassifySections) return;
-      if (claim.run(threadId).changes === 0) return;
+      if (attempted.get(threadId)) return;
       await classifyThreadSection(threadId);
     } catch (error) {
       if (!disposed) {

@@ -61,13 +61,21 @@ describe("thread sections", () => {
     // Section filter bar stays hidden in Sections mode so no chips clip at the top.
     expect(screen.queryByRole("group", { name: "Filter by section" })).toBeNull();
 
-    // Named sections appear in order, followed by the unsorted Threads group.
+    // Named sections appear in order inside a nested container, followed by the unsorted Threads group.
+    const sectionGroupsList = active.querySelector("[data-section-groups]");
+    expect(sectionGroupsList).not.toBeNull();
+    expect(sectionGroupsList?.className).toContain("border-l");
+
     const opsGroup = within(active).getByRole("region", { name: "Ops section" });
     const salesGroup = within(active).getByRole("region", { name: "Sales section" });
     const unsortedGroup = within(active).getByRole("region", { name: "Threads section" });
+    expect(sectionGroupsList?.contains(opsGroup)).toBe(true);
+    expect(sectionGroupsList?.contains(unsortedGroup)).toBe(true);
     expect(opsGroup.querySelector(".bb-sidebar-section-dot")).not.toBeNull();
+    expect(opsGroup.querySelector("[data-section-unsorted-dot]")).toBeNull();
     expect(salesGroup.querySelector(".bb-sidebar-section-dot")).not.toBeNull();
     expect(unsortedGroup.querySelector(".bb-sidebar-section-dot")).toBeNull();
+    expect(unsortedGroup.querySelector("[data-section-unsorted-dot]")).not.toBeNull();
 
     // Rows inside a section group omit the redundant section badge, so Personal rows collapse to 1 line.
     const opsCard = within(opsGroup).getByRole("link", { name: "Open ops task" }).closest("[data-parent-card]")!;

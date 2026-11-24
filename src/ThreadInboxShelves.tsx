@@ -131,7 +131,7 @@ export function DockableShelves({
       <div
         ref={attachLowerRef}
         data-shelf-dock=""
-        className={cn("mt-auto flex flex-col", hasLower && "border-t border-sidebar-border/40 pt-1")}
+        className={cn("mt-auto flex flex-col", hasLower && "border-t border-sidebar-border/40 pt-2")}
       >
         {lower}
       </div>
@@ -157,7 +157,7 @@ export function CollapsibleShelf({
   hidden?: boolean;
 }) {
   return (
-    <section aria-label={label} hidden={hidden} className="mt-2 first:mt-0.5">
+    <section aria-label={label} hidden={hidden} className="mt-3.5 first:mt-0.5">
       <div className="relative">
         <button
           type="button"
