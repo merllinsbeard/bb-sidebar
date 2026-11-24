@@ -56,7 +56,6 @@ function ActiveSectionGroup({
   );
 }
 
-/** Native-style collapsible section groups under the Active shelf. */
 export function SectionGroups({
   groups,
   onToggle,

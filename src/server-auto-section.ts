@@ -72,10 +72,6 @@ function pathBasename(pathValue: string | null | undefined): string | null {
   return parts.at(-1) ?? null;
 }
 
-/**
- * Match a non-personal project's name or workspace folder slug directly to a
- * live section name without spending an AI call.
- */
 export function matchSectionDeterministic(
   projectName: string | null | undefined,
   isPersonal: boolean,
@@ -112,10 +108,6 @@ function stripFormatting(value: string): string {
   return cleaned;
 }
 
-/**
- * Strictly match model output against live section names. Returns null for
- * NONE, empty output, or any unrecognized label.
- */
 export function parseClassifiedSection(
   rawOutput: string | null | undefined,
   sections: readonly SectionCandidate[],
@@ -223,30 +215,13 @@ async function resolveProjectContext(
   environmentId: string | null,
   signal?: AbortSignal,
 ): Promise<{ projectName: string | null; isPersonal: boolean; environmentPath: string | null }> {
-  let projectName: string | null = null;
-  let isPersonal = false;
-  let environmentPath: string | null = null;
-  try {
-    const projects = await bb.sdk.projects.list({ includePersonal: true, signal });
-    const project = projects.find((entry) => entry.id === projectId);
-    if (project) {
-      projectName = project.name;
-      isPersonal = project.kind === "personal";
-      const defaultSource = project.sources.find((source) => source.isDefault) ?? project.sources[0];
-      environmentPath = defaultSource?.path ?? null;
-    }
-  } catch {
-    // Missing project metadata falls back to prompt-based classification.
-  }
-
-  if (environmentId) {
-    try {
-      const environment = await bb.sdk.environments.get({ environmentId, signal });
-      if (environment.path) environmentPath = environment.path;
-    } catch {
-      // Keep the project source path if the environment lookup fails.
-    }
-  }
+  const projects = await bb.sdk.projects.list({ includePersonal: true, signal }).catch(() => null);
+  const project = projects?.find((entry) => entry.id === projectId);
+  const projectName = project?.name ?? null;
+  const isPersonal = project?.kind === "personal";
+  const defaultSource = project?.sources.find((source) => source.isDefault) ?? project?.sources[0];
+  const environment = environmentId ? await bb.sdk.environments.get({ environmentId, signal }).catch(() => null) : null;
+  const environmentPath = environment?.path ?? defaultSource?.path ?? null;
   return { projectName, isPersonal, environmentPath };
 }
 
@@ -348,13 +323,9 @@ export function createServerAutoSection(
       };
     }
 
-    let firstUserPrompt: string | null = null;
-    try {
-      const events = await bb.sdk.threads.events.list({ threadId, limit: "20", order: "asc", signal });
-      firstUserPrompt = extractFirstUserPrompt(events);
-    } catch {
-      // Fall back to thread title if events cannot be read.
-    }
+    const firstUserPrompt = await bb.sdk.threads.events
+      .list({ threadId, limit: "20", order: "asc", signal })
+      .then(extractFirstUserPrompt, () => null);
 
     if (!firstUserPrompt && !thread.title && !thread.titleFallback) {
       return { threadId, status: "skipped", reason: "no_content", section: null };

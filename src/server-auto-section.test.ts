@@ -50,7 +50,6 @@ describe("auto-section pure helpers", () => {
     expect(matchSectionDeterministic("Other", false, "/home/merlin/Dev/projects/ops-infra", SECTIONS)?.id).toBe(
       "sec_ops",
     );
-    // Personal projects never match deterministically by project name or path.
     expect(matchSectionDeterministic("Sidebar", true, "/workspace/sidebar", SECTIONS)).toBeNull();
     expect(matchSectionDeterministic("Unrelated", false, "/workspace/unrelated", SECTIONS)).toBeNull();
   });
@@ -367,13 +366,11 @@ describe("server auto-section classifier & CLI", () => {
     await vi.waitFor(() => expect(updated).toEqual([{ threadId: "thr_auto", sectionId: "sec_sales" }]));
     expect(claudeCallCount()).toBe(1);
 
-    // Clearing sectionId manually must not cause automatic re-classification.
     tAssigned.sectionId = null;
     await triggerIdle(harness, tAssigned);
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(claudeCallCount()).toBe(1);
 
-    // An unmatched (NONE) decision is also terminal for automatic retries.
     process.env.FAKE_CLAUDE_STDOUT = "NONE";
     await triggerIdle(harness, tUnmatched);
     await vi.waitFor(() => expect(claudeCallCount()).toBe(2));
@@ -382,7 +379,6 @@ describe("server auto-section classifier & CLI", () => {
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(claudeCallCount()).toBe(2);
 
-    // CLI classification records the attempt too, so a later thread.idle does not re-run.
     process.env.FAKE_CLAUDE_STDOUT = "Sales";
     const cliRes = await harness.behavior.runCli(["classify", "--thread", "thr_cli", "--json"]);
     expect(cliRes.exitCode).toBe(0);
@@ -392,7 +388,6 @@ describe("server auto-section classifier & CLI", () => {
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(claudeCallCount()).toBe(3);
 
-    // Turning the setting off prevents auto-classification on new threads.
     await harness.behavior.callRpc("updateSidebarSettings", { autoClassifySections: false });
     await triggerIdle(harness, tOff);
     await new Promise((resolve) => setTimeout(resolve, 40));
