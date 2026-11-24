@@ -30,7 +30,7 @@ export function SectionDot({
 }
 
 /** Colored dot + high-contrast section name, inline or as a compact pill. */
-export function SectionBadge({
+function SectionBadge({
   name,
   colorStyle,
   pill = false,

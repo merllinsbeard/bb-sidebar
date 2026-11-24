@@ -52,7 +52,7 @@ describe("ThreadInbox", () => {
       thread({ id: "child-3", title: "Three", parentThreadId: "parent" }),
       thread({ id: "child-4", title: "Four", parentThreadId: "parent" }),
       thread({ id: "child-5", title: "Five", parentThreadId: "parent" }),
-      thread({ id: "root", title: "No children" }),
+      thread({ id: "root", title: "No children", host: { id: "host_2", name: "merlinde" } }),
     ]);
 
     const badge = screen.getByRole("button", { name: "5 child threads" });

@@ -16,7 +16,7 @@ function readInitialSortPreference(): ActiveSortMode | null {
  * default to collapsible section groups whenever BB sections exist and fall
  * back to manual order otherwise.
  */
-export function resolveActiveSortMode(stored: ActiveSortMode | null, hasSections: boolean): ActiveSortMode {
+function resolveActiveSortMode(stored: ActiveSortMode | null, hasSections: boolean): ActiveSortMode {
   if (stored === "section" && !hasSections) return "manual";
   if (stored !== null) return stored;
   return hasSections ? "section" : "manual";

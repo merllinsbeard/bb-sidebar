@@ -4,7 +4,7 @@ import { visibleShelfThreads, type GroupAlert } from "./inbox-layout";
 
 export const UNSORTED_SECTION_GROUP_ID = "__unsorted__";
 
-export interface SectionSummary {
+interface SectionSummary {
   readonly id: string;
   readonly name: string;
 }
