@@ -9,7 +9,7 @@ const RETRY_COOLDOWN_MS = 5 * 60 * 1_000;
 const MAX_CONCURRENT_CLASSIFICATIONS = 1;
 const CLASSIFIER_TIMEOUT_MS = 30_000;
 const MAX_PROMPT_CHARS = 1_200;
-const EXAMPLE_THREADS_LIMIT = 200;
+const SECTION_EXAMPLE_FETCH_LIMIT = 12;
 const MAX_EXAMPLES_PER_SECTION = 6;
 const MAX_EXAMPLE_TITLE_CHARS = 70;
 
@@ -389,10 +389,20 @@ export function createServerAutoSection(
 
     if (!firstUserPrompt && !thread.title && !thread.titleFallback) return skip("no_content");
 
-    const listedThreads = await bb.sdk.threads
-      .list({ archived: false, hasParent: false, unsectioned: false, limit: EXAMPLE_THREADS_LIMIT, signal })
-      .catch(() => null);
-    const sectionExamples = listedThreads ? collectSectionExamples(listedThreads, sections, threadId) : undefined;
+    const perSection = await Promise.all(
+      sections.map((section) =>
+        bb.sdk.threads
+          .list({
+            sectionId: section.id,
+            archived: false,
+            hasParent: false,
+            limit: SECTION_EXAMPLE_FETCH_LIMIT,
+            signal,
+          })
+          .catch(() => [] as ExampleThread[]),
+      ),
+    );
+    const sectionExamples = collectSectionExamples(perSection.flat(), sections, threadId);
 
     const prompt = buildClassificationPrompt(sections, {
       projectName,

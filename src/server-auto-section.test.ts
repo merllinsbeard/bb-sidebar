@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
 import { matchSectionDeterministic, parseClassifiedSection } from "./server-auto-section";
@@ -110,7 +111,9 @@ describe("server auto-section classifier & CLI", () => {
     projects?: ReturnType<typeof projectsWith>;
     sections?: typeof SECTIONS;
     eventsForThread?: (threadId: string) => unknown[];
-    listThreads?: () => Promise<ReturnType<typeof projectThread>[]>;
+    listThreads?: (
+      args?: Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0],
+    ) => Promise<ReturnType<typeof projectThread>[]>;
   }) {
     const threads = options?.threads ?? [
       projectThread({ id: "thr_1", projectId: "proj_personal", title: "Review Q4 sales deck" }),
@@ -151,7 +154,16 @@ describe("server auto-section classifier & CLI", () => {
         projects: { list: async () => projects as never },
         threadSections: { list: async () => sections as never },
         threads: {
-          ...(options?.listThreads ? { list: options.listThreads as never } : {}),
+          list: (options?.listThreads ??
+            (async (args: Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0]) => {
+              const all = projects.flatMap((p) => ("threads" in p ? p.threads : []));
+              let filtered = all;
+              if (args?.threadIds) filtered = filtered.filter((t) => args.threadIds!.includes(t.id));
+              if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
+              if (args?.unsectioned === true) filtered = filtered.filter((t) => t.sectionId === null);
+              const offset = args?.offset ?? 0;
+              return filtered.slice(offset, offset + (args?.limit ?? 100));
+            })) as never,
           get: async ({ threadId }) => {
             const match = threads.find((t) => t.id === threadId);
             if (!match) throw new Error(`Unknown thread ${threadId}`);
@@ -445,6 +457,83 @@ describe("server auto-section classifier & CLI", () => {
     expect(fallbackRes.exitCode).toBe(0);
     expect(failingHost.updated).toEqual([{ threadId: "thr_fallback", sectionId: "sec_sales" }]);
     expect(claudeCall(2).stdin).toContain("\n- Sales\n");
+  });
+
+  it("queries examples per sectionId to avoid global page starvation and handles partial list failures", async () => {
+    const target = projectThread({
+      id: "thr_starved_target",
+      projectId: "proj_personal",
+      title: "Close annual contract",
+    });
+    const fillerUnsectioned = Array.from({ length: 220 }, (_, i) =>
+      projectThread({
+        id: `thr_unsec_${i}`,
+        projectId: "proj_alpha",
+        sectionId: null,
+        title: `Unsectioned noise ${i}`,
+        updatedAt: 1_000 + i,
+      }),
+    );
+    const salesThread = projectThread({
+      id: "thr_sales_tail",
+      projectId: "proj_zeta",
+      sectionId: "sec_sales",
+      title: "Enterprise deal desk",
+      updatedAt: 500,
+    });
+    const opsThread = projectThread({
+      id: "thr_ops_tail",
+      projectId: "proj_zeta",
+      sectionId: "sec_ops",
+      title: "Upgrade PostgreSQL cluster",
+      updatedAt: 450,
+    });
+    const allThreads = [target, ...fillerUnsectioned, salesThread, opsThread];
+    const recordedCalls: Array<Parameters<BbPluginApi["sdk"]["threads"]["list"]>[0]> = [];
+
+    const { bb, harness } = setupHost({
+      threads: allThreads,
+      listThreads: async (args) => {
+        recordedCalls.push(args);
+        let filtered = allThreads;
+        if (args?.sectionId) filtered = filtered.filter((t) => t.sectionId === args.sectionId);
+        if (args?.unsectioned === true) filtered = filtered.filter((t) => t.sectionId === null);
+        return filtered.slice(args?.offset ?? 0, (args?.offset ?? 0) + (args?.limit ?? 100));
+      },
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_starved_target", "--dry-run", "--json"]);
+    expect(res.exitCode).toBe(0);
+    const stdin = claudeCall(1).stdin;
+    expect(stdin).toContain('- Sales (examples: "Enterprise deal desk")');
+    expect(stdin).toContain('- Ops & Infra (examples: "Upgrade PostgreSQL cluster")');
+    expect(stdin).toContain("\n- Sidebar\n");
+    expect(recordedCalls.map((call) => call?.sectionId).sort()).toEqual(["sec_ops", "sec_sales", "sec_sidebar"]);
+    expect(recordedCalls.every((call) => call?.limit === 12)).toBe(true);
+
+    const partialHost = setupHost({
+      threads: [target, salesThread, opsThread],
+      listThreads: async (args) => {
+        if (args?.sectionId === "sec_ops") throw new Error("ops query failed");
+        return [target, salesThread, opsThread].filter((t) => !args?.sectionId || t.sectionId === args.sectionId);
+      },
+    });
+    await plugin(partialHost.bb);
+    disposers.push(() => partialHost.harness.lifecycle.dispose());
+
+    const partialRes = await partialHost.harness.behavior.runCli([
+      "classify",
+      "--thread",
+      "thr_starved_target",
+      "--dry-run",
+      "--json",
+    ]);
+    expect(partialRes.exitCode).toBe(0);
+    const partialStdin = claudeCall(2).stdin;
+    expect(partialStdin).toContain('- Sales (examples: "Enterprise deal desk")');
+    expect(partialStdin).toContain("\n- Ops & Infra\n");
   });
 
   it("throttles automatic retries during failure cooldown, keeps CLI unblocked, and retries once cooldown expires", async () => {
