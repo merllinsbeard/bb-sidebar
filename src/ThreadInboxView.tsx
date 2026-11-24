@@ -82,6 +82,12 @@ export function ThreadInboxView({
 }: ThreadInboxViewProps) {
   const { setExpandedShelves, setActiveSortMode, setSettledLimit } = useInboxActions();
   const { pinned, inbox, working, inactive, snoozed, parked, settled } = shelves;
+  const hasLowerShelves =
+    working.threads.length > 0 ||
+    inactive.threads.length > 0 ||
+    snoozed.threads.length > 0 ||
+    parked.threads.length > 0 ||
+    settled.threads.length > 0;
   return (
     <div data-bb-sidebar-root="" className="flex min-h-0 flex-1 flex-col">
       {/* Project scope is plugin-owned; New thread lives in bb's chrome. */}
@@ -105,6 +111,7 @@ export function ThreadInboxView({
         ) : (
           <DockableShelves
             docked={dockShelvesEnabled}
+            hasLower={hasLowerShelves}
             attachUpperRef={attachShelvesMotionRef}
             attachLowerRef={attachDockMotionRef}
             upper={
@@ -112,7 +119,6 @@ export function ThreadInboxView({
                 {pinned.threads.length > 0 ? (
                   <CollapsibleShelf
                     label="Pinned"
-                    icon="Pin"
                     count={pinned.threads.length}
                     expanded={expandedShelves.pinned}
                     onToggle={() =>
@@ -130,7 +136,6 @@ export function ThreadInboxView({
                 {inbox.threads.length > 0 ? (
                   <CollapsibleShelf
                     label="Active"
-                    icon="Pulse"
                     count={inbox.threads.length}
                     expanded={expandedShelves.active}
                     onToggle={() =>
@@ -185,7 +190,6 @@ export function ThreadInboxView({
                 {working.threads.length > 0 ? (
                   <CollapsibleShelf
                     label="Working"
-                    icon="Working"
                     count={working.threads.length}
                     expanded={expandedShelves.working}
                     onToggle={() =>
@@ -210,7 +214,6 @@ export function ThreadInboxView({
                 {inactive.threads.length > 0 ? (
                   <CollapsibleShelf
                     label="Inactive"
-                    icon="PauseCircle"
                     count={inactive.threads.length}
                     expanded={expandedShelves.inactive}
                     onToggle={() =>
@@ -229,7 +232,6 @@ export function ThreadInboxView({
                 ) : null}
                 <CompactShelf
                   label="Snoozed"
-                  icon="Clock"
                   threads={snoozed.threads}
                   expanded={expandedShelves.snoozed}
                   onToggle={() =>
@@ -244,7 +246,6 @@ export function ThreadInboxView({
                 />
                 <CompactShelf
                   label="Parked"
-                  icon="Car"
                   threads={parked.threads}
                   expanded={expandedShelves.parked}
                   onToggle={() =>
@@ -259,7 +260,6 @@ export function ThreadInboxView({
                 />
                 <CompactShelf
                   label="Settled"
-                  icon="Meditation"
                   threads={settled.threads}
                   expanded={expandedShelves.settled}
                   onToggle={() =>

@@ -12,7 +12,7 @@ export function WokeMarker({ onDismiss }: { onDismiss: () => void }) {
           event.stopPropagation();
           onDismiss();
         }}
-        className="pointer-events-auto text-2xs font-medium text-[color:var(--bb-sidebar-woke)] hover:underline"
+        className="pointer-events-auto text-xs font-medium text-[color:var(--bb-sidebar-woke)] hover:underline"
       >
         Woke
       </button>

@@ -37,7 +37,7 @@ describe("Compact project display", () => {
       fireEvent.click(await screen.findByRole("button", { name: "Parked (1)" }));
       const row = (title: string) => screen.getByText(title).closest("li")!;
       await waitFor(() => {
-        expect(row("Working thread").querySelector(".h-8") !== null).toBe(display !== "full");
+        expect(row("Working thread").querySelector("[data-compact-row]") !== null).toBe(display !== "full");
         expect(screen.getByText("Parked thread")).toBeDefined();
       });
 
@@ -100,7 +100,7 @@ describe("Compact project display", () => {
         const region = screen.getByRole("region", { name: shelf });
         const row = within(region).getByText(`${shelf} thread`).closest("li")!;
         const iconOnly = ["Active", "Pinned", "Working"].includes(shelf);
-        expect(row.querySelector(".h-8")).not.toBeNull();
+        expect(row.querySelector("[data-compact-row]")).not.toBeNull();
         expect(row.querySelector("[data-letter]")).not.toBeNull();
         expect(within(row).getByText("Sidebar project").classList.contains("sr-only")).toBe(iconOnly);
         expect(within(row).queryByText("·") !== null).toBe(!iconOnly);

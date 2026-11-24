@@ -19,7 +19,7 @@ export function SectionBadge({
       data-section-badge=""
       style={colorStyle}
       className={cn(
-        "inline-flex min-w-0 max-w-full items-center gap-1 text-2xs font-medium",
+        "inline-flex min-w-0 max-w-full items-center gap-1 text-xs leading-4 font-normal",
         pill && "bb-sidebar-section-pill shrink-0 rounded-full px-1.5 py-px",
         className,
       )}
@@ -32,7 +32,7 @@ export function SectionBadge({
   );
 }
 
-/** Card top-left header: project identity, section badge, or both. */
+/** Card metadata identity: project favicon + name, section badge, or both. */
 export function CardProjectHeader({
   projectId,
   projectName,
@@ -52,23 +52,19 @@ export function CardProjectHeader({
 }) {
   if (isPersonal && sectionName) {
     return (
-      <span data-settle-fade="" className="flex min-w-0 flex-1 items-center gap-1.5">
+      <span className="inline-flex min-w-0 max-w-full shrink items-center gap-1.5">
         <SectionBadge name={sectionName} colorStyle={sectionColor} />
       </span>
     );
   }
+  if (!projectName) return null;
   return (
-    <span
-      data-settle-fade=""
-      className="flex min-w-0 flex-1 items-center gap-1.5 text-2xs font-medium text-muted-foreground"
-    >
-      {projectName ? (
-        <ProjectFavicon projectId={projectId} src={projectIconUrl} name={projectName} className="size-3" />
-      ) : null}
+    <span className="inline-flex min-w-0 max-w-full shrink items-center gap-1.5 text-xs leading-4 font-normal text-muted-foreground">
+      <ProjectFavicon projectId={projectId} src={projectIconUrl} name={projectName} className="size-3" />
       <span style={projectColor} className={cn("min-w-0 truncate", projectColor && "bb-sidebar-project-name")}>
-        {projectName ?? " "}
+        {projectName}
       </span>
-      {sectionName ? <SectionBadge name={sectionName} colorStyle={sectionColor} pill className="max-w-[45%]" /> : null}
+      {sectionName ? <SectionBadge name={sectionName} colorStyle={sectionColor} pill className="max-w-[50%]" /> : null}
     </span>
   );
 }

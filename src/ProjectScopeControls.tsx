@@ -95,8 +95,8 @@ export function ProjectScopeControls({
                   )
                 }
                 className={cn(
-                  "relative flex min-h-7 min-w-0 max-w-full select-none items-center gap-1.5 rounded-md px-1.5 py-1 text-xs outline-none hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-ring [&_img]:pointer-events-none",
-                  active ? "bg-sidebar-accent text-foreground" : "text-muted-foreground",
+                  "relative flex min-h-6 max-md:pointer-coarse:min-h-8 min-w-0 max-w-full select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-normal outline-none transition-colors hover:bg-state-hover hover:text-sidebar-foreground focus-visible:ring-1 focus-visible:ring-ring [&_img]:pointer-events-none",
+                  active ? "bg-state-active text-sidebar-foreground" : "text-subtle-foreground",
                   shortcuts.length > 1 && "cursor-grab active:cursor-grabbing",
                   draggingId === project.id && "opacity-50",
                 )}

@@ -66,7 +66,7 @@ describe("ThreadInbox", () => {
 
       await waitFor(() => {
         const row = screen.getByRole("link", { name: "Pi thread" }).closest("[data-parent-card]")!;
-        expect(row.classList.contains("h-8")).toBe(display !== "full");
+        expect(row.hasAttribute("data-compact-row")).toBe(display !== "full");
       });
       const region = screen.getByRole("region", { name: display === "working-shelf" ? "Working" : "Active" });
       const glyph = within(region).getByRole("img", { name: "Pi" });
@@ -91,17 +91,18 @@ describe("ThreadInbox", () => {
     expect(mark.getAttribute("aria-hidden")).toBe("true");
     expect(mark.hasAttribute("aria-label")).toBe(false);
     // Untinted logos keep the sidebar's muted ink; bb paints its mask in currentColor.
-    expect(mark.classList.contains("text-muted-foreground/70")).toBe(true);
+    expect(mark.classList.contains("text-muted-foreground")).toBe(true);
     expect(screen.getAllByRole("img", { name: "Codex" })).toHaveLength(1);
   });
 
-  it("constrains custom provider image avatars to a crisp square", () => {
+  it("constrains custom provider image avatars to a crisp square matching the box", () => {
     render([thread({ providerId: "codex" })]);
 
     const glyph = screen.getByRole("img", { name: "Codex" });
+    expect(glyph.className).toContain("size-4");
     expect(glyph.className).toContain("overflow-hidden");
     expect(glyph.className).toContain("rounded-[4px]");
-    expect(glyph.className).toContain("[&_img]:!size-3.5");
+    expect(glyph.className).toContain("[&_img]:!size-full");
     expect(glyph.className).toContain("[&_img]:object-cover");
   });
 

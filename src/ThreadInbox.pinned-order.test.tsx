@@ -33,7 +33,7 @@ describe("ThreadInbox", () => {
     expect(within(active).queryByText("Stuck")).toBeNull();
     expect(within(pinned).getByText("Stuck")).toBeDefined();
     fireEvent.click(within(pinned).getByRole("button", { expanded: true }));
-    expect(within(pinned).getByText("Pinned (1)")).toBeDefined();
+    expect(within(pinned).getByRole("button", { name: "Pinned (1)" })).toBeDefined();
     expect(within(pinned).queryByText("Stuck")).toBeNull();
     expect(within(active).getByText("Plain")).toBeDefined();
   });

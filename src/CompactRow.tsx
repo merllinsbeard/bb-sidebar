@@ -28,6 +28,7 @@ export function CompactRow({
   rowProps,
   linkProps,
   beforeContent,
+  leading,
   fadeContent = false,
   trailing,
 }: {
@@ -54,20 +55,22 @@ export function CompactRow({
     "draggable" | "aria-keyshortcuts" | "onPointerDown" | "onKeyDown" | "className"
   >;
   beforeContent?: ReactNode;
+  leading?: ReactNode;
   fadeContent?: boolean;
   trailing: ReactNode;
 }) {
   const muted = tone === "muted";
   return (
     <div
+      data-compact-row=""
       {...rowProps}
       className={cn(
-        muted
-          ? "group/slim relative flex h-8 items-center gap-2 rounded-md px-2.5 text-xs transition-colors duration-150 ease-out motion-reduce:transition-none"
-          : "group/card relative rounded-md px-2.5 transition-colors duration-150 ease-out motion-reduce:transition-none",
-        !muted && "flex h-8 items-center gap-2 text-xs",
-        isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
-        !isActive && isSplitOpen && "bg-sidebar-accent/30",
+        muted ? "group/slim" : "group/card",
+        "relative flex h-[var(--bb-sidebar-row-height,28px)] max-md:pointer-coarse:h-[var(--bb-sidebar-row-height-coarse,36px)] items-center gap-2 rounded-md px-2 text-xs transition-colors duration-150 ease-out motion-reduce:transition-none",
+        isActive
+          ? "bg-state-active bb-sidebar-selected-row text-sidebar-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        !isActive && isSplitOpen && "bb-sidebar-open-in-split-row",
         isDragging && DRAG_LIFT_CLASS,
       )}
     >
@@ -98,13 +101,21 @@ export function CompactRow({
           className={linkProps?.className ?? "absolute inset-0 cursor-pointer rounded-md"}
         />
       </ThreadDetailsTooltip>
+      {leading ? (
+        <span
+          data-settle-fade={fadeContent ? "" : undefined}
+          className="pointer-events-none relative flex shrink-0 items-center"
+        >
+          {leading}
+        </span>
+      ) : null}
       <span
         data-settle-fade={fadeContent ? "" : undefined}
         className={cn(
           "pointer-events-none relative flex min-w-0 flex-1 items-center gap-1",
           isRenaming && "pointer-events-auto",
-          muted && (isActive ? "text-foreground" : "text-muted-foreground/70"),
-          muted && "group-hover/slim:text-foreground",
+          muted && (isActive ? "text-sidebar-foreground" : "text-muted-foreground/70"),
+          muted && "group-hover/slim:text-sidebar-foreground",
         )}
       >
         {showProject && projectName && !isRenaming ? (
@@ -116,7 +127,7 @@ export function CompactRow({
                 projectIconOnly
                   ? "sr-only"
                   : cn(
-                      "max-w-[40%] shrink truncate",
+                      "max-w-[35%] shrink truncate text-xs",
                       projectColor
                         ? "bb-sidebar-project-name"
                         : !muted || isActive
@@ -128,7 +139,7 @@ export function CompactRow({
               {projectName}
             </span>
             {sectionName && !projectIconOnly ? (
-              <SectionBadge name={sectionName} colorStyle={sectionColor} pill className="max-w-[30%]" />
+              <SectionBadge name={sectionName} colorStyle={sectionColor} pill className="max-w-[28%]" />
             ) : null}
             {!projectIconOnly ? (
               <span
@@ -146,7 +157,7 @@ export function CompactRow({
           </>
         ) : sectionName && !isRenaming ? (
           <>
-            <SectionBadge name={sectionName} colorStyle={sectionColor} className="max-w-[40%] shrink" />
+            <SectionBadge name={sectionName} colorStyle={sectionColor} className="max-w-[35%] shrink" />
             <span
               aria-hidden="true"
               className={cn(
@@ -167,10 +178,15 @@ export function CompactRow({
           className={
             muted
               ? cn(
-                  "min-w-0 flex-1 truncate",
-                  isActive ? "text-foreground" : "text-foreground/80 group-hover/slim:text-foreground",
+                  "min-w-0 flex-1 truncate text-sm leading-5 max-md:pointer-coarse:text-base",
+                  isActive
+                    ? "text-sidebar-foreground"
+                    : "text-sidebar-foreground/80 group-hover/slim:text-sidebar-foreground",
                 )
-              : cn("min-w-0 flex-1 truncate text-foreground", thread.isUnread && "font-medium")
+              : cn(
+                  "min-w-0 flex-1 truncate text-sm leading-5 text-sidebar-foreground max-md:pointer-coarse:text-base",
+                  thread.isUnread && "font-medium",
+                )
           }
         />
       </span>

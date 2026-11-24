@@ -44,8 +44,8 @@ export function ActiveSortPicker({
             }
           }}
           className={cn(
-            "absolute bottom-1 right-[1.875rem] z-10 flex size-4 items-center justify-between rounded-md border-0 bg-transparent p-0 text-muted-foreground/40 shadow-none transition-colors duration-150 hover:bg-sidebar-accent hover:text-muted-foreground hover:duration-0 focus:outline-none focus:ring-0 focus-visible:ring-1 focus-visible:ring-ring",
-            mode !== "manual" && "bg-sidebar-accent/60 text-muted-foreground/80",
+            "absolute right-7 top-1/2 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-md border-0 bg-transparent p-0 text-subtle-foreground shadow-none transition-colors duration-150 hover:bg-state-hover hover:text-sidebar-foreground hover:duration-0 focus:outline-none focus:ring-0 focus-visible:ring-1 focus-visible:ring-ring",
+            mode !== "manual" && "bg-state-active text-sidebar-foreground",
           )}
         >
           <Icon name="ArrowUpDown" className="size-3" />

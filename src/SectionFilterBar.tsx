@@ -3,7 +3,7 @@ import { UNSORTED_SECTION_FILTER } from "./section-colors";
 import { cn } from "./lib/utils";
 
 const PILL_CLASS =
-  "inline-flex min-h-6 max-w-full shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-ring";
+  "inline-flex h-6 max-md:pointer-coarse:h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-normal outline-none transition-colors hover:bg-state-hover hover:text-sidebar-foreground focus-visible:ring-1 focus-visible:ring-ring";
 
 export function SectionFilterBar() {
   const { sections, sectionColorById, sectionFilter } = useInboxEnvironment();
@@ -13,14 +13,18 @@ export function SectionFilterBar() {
   const toggle = (target: string) => setSectionFilter((current) => (current === target ? null : target));
 
   return (
-    <div role="group" aria-label="Filter by section" className="flex flex-wrap gap-1 pt-1">
+    <div
+      role="group"
+      aria-label="Filter by section"
+      className="bb-sidebar-no-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto pt-1"
+    >
       <button
         type="button"
         aria-pressed={sectionFilter === null}
         onClick={() => setSectionFilter(null)}
         className={cn(
           PILL_CLASS,
-          sectionFilter === null ? "bg-sidebar-accent text-foreground" : "text-muted-foreground",
+          sectionFilter === null ? "bg-state-active text-sidebar-foreground" : "text-subtle-foreground",
         )}
       >
         All
@@ -35,14 +39,10 @@ export function SectionFilterBar() {
             aria-pressed={active}
             style={colorStyle}
             onClick={() => toggle(section.id)}
-            className={cn(
-              PILL_CLASS,
-              "min-w-0",
-              active ? "bg-sidebar-accent text-foreground" : "text-muted-foreground",
-            )}
+            className={cn(PILL_CLASS, active ? "bg-state-active text-sidebar-foreground" : "text-subtle-foreground")}
           >
             <span aria-hidden="true" className="bb-sidebar-section-dot size-1.5 shrink-0 rounded-full" />
-            <span className="truncate">{section.name}</span>
+            <span>{section.name}</span>
           </button>
         );
       })}
@@ -52,7 +52,9 @@ export function SectionFilterBar() {
         onClick={() => toggle(UNSORTED_SECTION_FILTER)}
         className={cn(
           PILL_CLASS,
-          sectionFilter === UNSORTED_SECTION_FILTER ? "bg-sidebar-accent text-foreground" : "text-muted-foreground",
+          sectionFilter === UNSORTED_SECTION_FILTER
+            ? "bg-state-active text-sidebar-foreground"
+            : "text-subtle-foreground",
         )}
       >
         Unsorted

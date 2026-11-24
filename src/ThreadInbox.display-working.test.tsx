@@ -53,7 +53,7 @@ function renderInbox(
 const titlesIn = (name: string) =>
   rowLinks(screen.getByRole("region", { name })).map((link) => link.getAttribute("aria-label"));
 const isCompact = (title: string) =>
-  screen.getByRole("link", { name: title }).closest("[data-parent-card]")!.classList.contains("h-8");
+  screen.getByRole("link", { name: title }).closest("[data-parent-card]")!.hasAttribute("data-compact-row");
 const card = (title: string) => screen.getByRole("link", { name: title }).closest("li")!;
 
 async function menuFor(element: HTMLElement) {

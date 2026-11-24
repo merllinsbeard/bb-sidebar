@@ -68,7 +68,10 @@ test("sidebar snapshot Compact all threads", async ({ page, request }, testInfo)
     await expect(link(page, birch.title)).toBeVisible();
     // Pinned and Active rows fold to one line like the shelf rows below them.
     for (const title of [atlas.title, birch.title])
-      await expect(page.getByRole("link", { name: title, exact: true }).locator("xpath=..")).toHaveClass(/\bh-8\b/);
+      await expect(page.getByRole("link", { name: title, exact: true }).locator("xpath=..")).toHaveAttribute(
+        "data-compact-row",
+        "",
+      );
     await page.mouse.move(1000, 750);
     await capture(page, testInfo, "compact-all.png");
   } finally {

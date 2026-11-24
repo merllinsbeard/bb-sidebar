@@ -16,7 +16,7 @@ describe("ThreadInbox", () => {
     const activeShelf = screen.getByRole("region", { name: "Active" });
     expect(within(activeShelf).getByRole("button", { expanded: true })).toBeDefined();
     fireEvent.click(within(activeShelf).getByRole("button", { expanded: true }));
-    expect(within(activeShelf).getByText("Active (2)")).toBeDefined();
+    expect(within(activeShelf).getByRole("button", { name: "Active (2)" })).toBeDefined();
     expect(within(activeShelf).queryByText("First active")).toBeNull();
     expect(within(activeShelf).queryByText("Second active")).toBeNull();
   });
@@ -83,7 +83,7 @@ describe("ThreadInbox", () => {
     const pinned = screen.getByRole("region", { name: "Pinned" });
     expect(within(active).getByText("Recent work")).toBeDefined();
     expect(within(active).queryByText("Stale work")).toBeNull();
-    expect(within(inactive).getByText("Inactive (1)")).toBeDefined();
+    expect(within(inactive).getByRole("button", { name: "Inactive (1)" })).toBeDefined();
     expect(within(inactive).queryByText("Stale work")).toBeNull();
     expect(within(pinned).getByText("Pinned old work")).toBeDefined();
 
@@ -152,7 +152,9 @@ describe("ThreadInbox", () => {
     });
 
     expect(within(screen.getByRole("region", { name: "Active" })).getByText("Seven hours old")).toBeDefined();
-    expect(within(screen.getByRole("region", { name: "Inactive" })).getByText("Inactive (1)")).toBeDefined();
+    expect(
+      within(screen.getByRole("region", { name: "Inactive" })).getByRole("button", { name: "Inactive (1)" }),
+    ).toBeDefined();
   });
 
   it("sorts active threads from the subtle header menu", async () => {
@@ -350,8 +352,8 @@ describe("ThreadInbox", () => {
     ).toEqual([
       expect.not.stringContaining("Web"),
       expect.not.stringContaining("Web"),
-      expect.stringMatching(/^Zed.*Loose Z/),
-      expect.stringMatching(/^Api.*Loose A/),
+      expect.stringMatching(/^Loose Z.*Zed/),
+      expect.stringMatching(/^Loose A.*Api/),
     ]);
   });
 
@@ -381,7 +383,7 @@ describe("ThreadInbox", () => {
       within(active)
         .getAllByRole("listitem")
         .map((row) => row.textContent),
-    ).toEqual([expect.stringMatching(/^Web.*Second/)]);
+    ).toEqual([expect.stringMatching(/^Second.*Web/)]);
   });
 
   it("gives one-thread projects a collapsible header until the option is turned off", async () => {
@@ -429,8 +431,8 @@ describe("ThreadInbox", () => {
 
     expect(screen.queryAllByRole("button", { name: /\(\d+\)$/ })).toEqual([]);
     expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual([
-      expect.stringMatching(/^Zed.*Zed thread/),
-      expect.stringMatching(/^Api.*Api thread/),
+      expect.stringMatching(/^Zed thread.*Zed/),
+      expect.stringMatching(/^Api thread.*Api/),
     ]);
   });
 

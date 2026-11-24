@@ -155,7 +155,7 @@ describe("sidebar settings", () => {
       expect(element.querySelector(".bb-sidebar-project-monogram")).not.toBeNull();
     };
     const row = (title: string) => screen.getByText(title).closest("li")!;
-    await waitFor(() => expect(row("Compact card").querySelector(".h-8")).not.toBeNull());
+    await waitFor(() => expect(row("Compact card").querySelector("[data-compact-row]")).not.toBeNull());
     for (const display of ["all", "full", "grouped", "none"] as const) {
       settings = { ...settings, projectColorDisplay: display };
       await rendered.experimental_invalidateRpc(["sidebar-settings"]);

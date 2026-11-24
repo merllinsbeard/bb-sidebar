@@ -86,7 +86,7 @@ export function GrandchildDisclosureButton({
               : "bg-muted text-muted-foreground group-hover:bg-accent group-hover:text-foreground group-focus-visible:bg-accent group-focus-visible:text-foreground",
           )}
         >
-          <span className="min-w-2.5 text-center font-sans text-2xs font-medium tabular-nums">{count}</span>
+          <span className="min-w-2.5 text-center font-sans text-xs font-medium tabular-nums">{count}</span>
           {summary.dominant ? (
             <StatusGlyph
               indicator={childStatusIndicator(summary.dominant)}

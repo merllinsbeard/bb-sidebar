@@ -2,7 +2,7 @@ import { useListMotion } from "./useListMotion";
 import { useMemo } from "react";
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import type { InboxThreadOptions } from "./InboxThreadRenderer";
-import { Icon, type IconName } from "./components/Icon";
+import { Icon } from "./components/Icon";
 import { cn } from "./lib/utils";
 import { ProjectFavicon, ProjectStripe } from "./ProjectFavicon";
 import { useProjectColor } from "./ProjectColors";
@@ -26,7 +26,6 @@ export const SETTLED_PAGE_SIZE = 25;
  */
 export function CompactShelf({
   label,
-  icon,
   threads,
   expanded,
   onToggle,
@@ -37,7 +36,6 @@ export function CompactShelf({
   expandedChildParentIds,
 }: {
   label: string;
-  icon: IconName;
   threads: readonly PluginSidebarThread[];
   expanded: boolean;
   onToggle: () => void;
@@ -59,7 +57,6 @@ export function CompactShelf({
     <CollapsibleShelf
       label={label}
       hidden={threads.length === 0}
-      icon={icon}
       count={threads.length}
       expanded={expanded}
       onToggle={onToggle}
@@ -87,7 +84,7 @@ export function CompactShelf({
         <button
           type="button"
           onClick={onLoadMore}
-          className="ml-2.5 mt-1 rounded px-1.5 py-1 text-2xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+          className="ml-2 mt-1 rounded-md px-2 py-1 text-xs font-normal text-subtle-foreground hover:bg-state-hover hover:text-sidebar-foreground"
         >
           Load {Math.min(SETTLED_PAGE_SIZE, threads.length - limit)} more
         </button>
@@ -105,12 +102,14 @@ export function CompactShelf({
  */
 export function DockableShelves({
   docked,
+  hasLower = true,
   upper,
   lower,
   attachUpperRef,
   attachLowerRef,
 }: {
   docked: boolean;
+  hasLower?: boolean;
   upper: React.ReactNode;
   lower: React.ReactNode;
   attachUpperRef: (node: HTMLDivElement | null) => void;
@@ -129,7 +128,11 @@ export function DockableShelves({
       <div ref={attachUpperRef} className="flex flex-col">
         {upper}
       </div>
-      <div ref={attachLowerRef} data-shelf-dock="" className="mt-auto flex flex-col">
+      <div
+        ref={attachLowerRef}
+        data-shelf-dock=""
+        className={cn("mt-auto flex flex-col", hasLower && "border-t border-sidebar-border/40 pt-1")}
+      >
         {lower}
       </div>
     </div>
@@ -138,7 +141,6 @@ export function DockableShelves({
 
 export function CollapsibleShelf({
   label,
-  icon,
   count,
   expanded,
   onToggle,
@@ -147,7 +149,6 @@ export function CollapsibleShelf({
   hidden = false,
 }: {
   label: string;
-  icon: IconName;
   count: number;
   expanded: boolean;
   onToggle: () => void;
@@ -156,23 +157,20 @@ export function CollapsibleShelf({
   hidden?: boolean;
 }) {
   return (
-    <section aria-label={label} hidden={hidden}>
+    <section aria-label={label} hidden={hidden} className="mt-2 first:mt-0.5">
       <div className="relative">
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
-          // Padded like a card, so the chevron ends on the same right edge as
-          // every row's status and provider glyph.
-          className="mt-3 flex w-full items-center gap-2 px-2.5 pb-1 text-left"
+          aria-label={expanded ? label : `${label} (${count})`}
+          className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-xs font-normal leading-5 text-subtle-foreground/75 transition-colors hover:text-sidebar-foreground"
         >
-          <span className="flex shrink-0 items-center gap-1.5 text-2xs font-medium text-muted-foreground/70">
-            <Icon name={icon} className="size-3.5 shrink-0" aria-hidden />
-            {expanded ? label : `${label} (${count})`}
-          </span>
-          <span className="h-px flex-1 bg-sidebar-border" />
-          {action ? <span aria-hidden="true" className="size-4 shrink-0" /> : null}
-          <HeaderChevron expanded={expanded} className="text-muted-foreground/70" />
+          <span className="min-w-0 truncate">{label}</span>
+          <span className="shrink-0 text-xs font-normal tabular-nums text-subtle-foreground/60">{count}</span>
+          <span className="flex-1" />
+          {action ? <span aria-hidden="true" className="size-6 shrink-0" /> : null}
+          <HeaderChevron expanded={expanded} className="text-subtle-foreground" />
         </button>
         {action}
       </div>
@@ -189,7 +187,7 @@ function HeaderChevron({ expanded, className }: { expanded: boolean; className: 
         name="ChevronDown"
         aria-hidden
         className={cn(
-          "size-3 transition-transform duration-150 ease-out motion-reduce:transition-none",
+          "size-3.5 transition-transform duration-150 ease-out motion-reduce:transition-none",
           className,
           expanded && "rotate-180",
         )}
@@ -242,29 +240,25 @@ function ActiveProjectGroup({
           aria-expanded={expanded}
           aria-label={`${projectName} (${threadCount})${groupAlertPhrase(alerts)}`}
           aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-          // Padded like a card, so the name lines up with every row's title and
-          // the chevron with every row's trailing glyph. Vertical panning stays
-          // with the scroller, as on a row.
           className={cn(
-            "flex w-full touch-pan-y items-center gap-1.5 px-2.5 text-left",
-            expanded ? "pb-0.5 pt-2" : "py-1.5",
+            "flex h-7 w-full touch-pan-y items-center gap-1.5 rounded-md px-2 text-left text-xs font-normal leading-5 text-subtle-foreground/75 transition-colors hover:text-sidebar-foreground",
             !reorder.disabled && "cursor-grab active:cursor-grabbing",
           )}
         >
-          <ProjectFavicon projectId={projectId} src={projectIconUrl} name={projectName} className="size-3" />
+          <ProjectFavicon projectId={projectId} src={projectIconUrl} name={projectName} className="size-3.5" />
           <span
             style={projectColor}
             className={cn(
-              "min-w-0 truncate text-2xs font-medium",
-              projectColor ? "bb-sidebar-project-name" : "text-muted-foreground",
+              "min-w-0 truncate text-xs font-normal leading-5",
+              projectColor ? "bb-sidebar-project-name" : "text-subtle-foreground/75",
             )}
           >
             {projectName}
           </span>
-          <span className="shrink-0 text-2xs text-muted-foreground/50">{threadCount}</span>
+          <span className="shrink-0 text-xs font-normal tabular-nums text-subtle-foreground/60">{threadCount}</span>
           <GroupAlertDots alerts={alerts} />
-          <span className="h-px flex-1 bg-sidebar-border/50" />
-          <HeaderChevron expanded={expanded} className="text-muted-foreground/50" />
+          <span className="flex-1" />
+          <HeaderChevron expanded={expanded} className="text-subtle-foreground" />
         </button>
         <ul ref={attachListMotionRef} aria-label={`${projectName} active threads`} className="flex flex-col gap-px">
           {children}
@@ -306,16 +300,16 @@ function EnvironmentGroup({
           onPointerDown={reorder.onPointerDown}
           onKeyDown={reorder.onKeyDown}
           className={cn(
-            "flex w-full touch-pan-y items-center gap-1.5 px-2.5 pb-1 pt-2 text-left text-2xs text-muted-foreground",
+            "flex h-7 w-full touch-pan-y items-center gap-1.5 rounded-md px-2 text-left text-xs font-normal leading-5 text-subtle-foreground/75 transition-colors hover:text-sidebar-foreground",
             !reorder.disabled && "cursor-grab active:cursor-grabbing",
           )}
         >
-          <Icon name="FolderGit" className="size-3 shrink-0 text-muted-foreground/60" aria-hidden />
+          <Icon name="FolderGit" className="size-3.5 shrink-0 text-subtle-foreground/75" aria-hidden />
           <span className="min-w-0 truncate font-mono">{label}</span>
-          <span className="shrink-0 text-muted-foreground/50">{unit.threadCount}</span>
+          <span className="shrink-0 tabular-nums text-subtle-foreground/60">{unit.threadCount}</span>
           <GroupAlertDots alerts={unit.alerts} />
           <span className="flex-1" />
-          <HeaderChevron expanded={unit.expanded} className="text-muted-foreground/50" />
+          <HeaderChevron expanded={unit.expanded} className="text-subtle-foreground" />
         </button>
         <ul
           ref={attachListRef}
@@ -401,10 +395,7 @@ export function Shelf({ label, children }: { label: string | null; children: Rea
     // unnamed list beneath their collapsible heading.
     <section {...(label ? { "aria-label": label } : {})}>
       {label ? (
-        <h2 className={cn("flex items-center gap-2 px-2.5 pb-1 pt-3")}>
-          <span className="text-2xs font-medium text-muted-foreground/70">{label}</span>
-          <span className="h-px flex-1 bg-sidebar-border" />
-        </h2>
+        <h2 className="flex h-7 items-center px-2 text-xs font-normal leading-5 text-subtle-foreground/75">{label}</h2>
       ) : null}
       <ul ref={attachListMotionRef} className="flex flex-col gap-px">
         {children}

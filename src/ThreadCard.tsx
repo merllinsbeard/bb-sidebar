@@ -1,7 +1,7 @@
-import { ThreadLocation, ThreadPullRequest } from "./ThreadMetadata";
+import { describeRowMetadata, ThreadMetadataSubline } from "./ThreadMetadata";
 import { CompactRow } from "./CompactRow";
 import { WokeMarker } from "./WokeMarker";
-import { ShortcutHint, useSidebarThreadSplit, useThreadActions } from "./bb-sdk";
+import { ShortcutHint, useEnvironmentPullRequest, useSidebarThreadSplit, useThreadActions } from "./bb-sdk";
 import {
   useId,
   useLayoutEffect,
@@ -23,14 +23,12 @@ import { rowKeyshortcuts } from "./lib/keyshortcuts";
 import { RowContextMenu } from "./RowContextMenu";
 import { ProviderGlyph } from "./ProviderGlyph";
 import { limitSlotClass, STATUS_SLOT_CLASS, StatusOrTime, useStatusLimit, useWorkingForDisplay } from "./StatusSlot";
-import { CompactStatusOrTime } from "./StatusGlyph";
 import { threadDisplayTitle } from "./inbox";
 import { InlineThreadTitle } from "./InlineThreadTitle";
 import { isWorkingTree } from "./working-tree";
 import { ProjectStripe } from "./ProjectFavicon";
-import { CardProjectHeader } from "./SectionBadge";
 import { useProjectColor } from "./ProjectColors";
-import { OpenPortsIndicator } from "./OpenPorts";
+import { OpenPortsIndicator, useHasOpenPorts } from "./OpenPorts";
 import { useInboxEnvironment, useInboxActions, useInboxActivity } from "./InboxContext";
 import { useRowStatusRuns } from "./useLifecycle";
 import { projectIconUrl as iconUrl } from "./project-icons";
@@ -114,7 +112,6 @@ export function ThreadCard({
   const isPersonalProject = personalProjectIds.has(thread.projectId);
   const section = thread.sectionId ? (sectionById.get(thread.sectionId) ?? null) : null;
   const sectionColor = section ? sectionColorById.get(section.id) : undefined;
-  const showProjectRow = showProject && (!isPersonalProject || section !== null);
   const projectIconUrl = iconUrl(thread.projectId, projectIconRevision);
   const onPark = () => parkThread(thread);
   const onSettle = () => settleThread(thread);
@@ -138,6 +135,20 @@ export function ThreadCard({
     observer.observe(row);
     return () => observer.disconnect();
   }, []);
+  const hasOpenPorts = useHasOpenPorts(thread);
+  const pullRequest = useEnvironmentPullRequest(isVisible ? (thread.environment?.id ?? null) : null);
+  const metadata = describeRowMetadata({
+    thread,
+    showProject,
+    isPersonalProject,
+    projectName,
+    hasSection: section !== null,
+    showEnvironment,
+    hasMultipleHosts,
+    childCount: childThreads.length,
+    hasOpenPorts,
+    hasPullRequest: pullRequest !== null,
+  });
   const [isRenaming, setIsRenaming] = useState(false);
   useLayoutEffect(() => {
     return () => {
@@ -224,7 +235,7 @@ export function ThreadCard({
           void pin?.action.run();
         }}
         className={cn(
-          "shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground",
+          "flex size-6 shrink-0 items-center justify-center rounded-md text-subtle-foreground hover:bg-state-hover hover:text-sidebar-foreground",
           "pointer-events-auto",
           (compact || !showParkActions) &&
             "opacity-0 transition-opacity duration-150 ease-out focus-visible:opacity-100 group-hover/card:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100",
@@ -240,10 +251,9 @@ export function ThreadCard({
       data-row-emphasis={emphasis}
       data-settle-fade=""
       className={cn(
-        "pointer-events-none relative truncate text-sm",
-        showProjectRow ? "mt-0.5" : "min-w-0 flex-1",
+        "pointer-events-none relative min-w-0 flex-1 truncate text-sm leading-5 max-md:pointer-coarse:text-base",
         isRenaming && "pointer-events-auto",
-        emphasis === "read-idle" ? "text-muted-foreground" : "text-foreground",
+        emphasis === "read-idle" ? "text-muted-foreground" : "text-sidebar-foreground",
         (emphasis === "unread" || emphasis === "woke") && "font-medium",
       )}
     >
@@ -310,6 +320,7 @@ export function ThreadCard({
                 ),
               }}
               beforeContent={isSettling ? <span aria-hidden="true" className="bb-sidebar-settle-sweep" /> : null}
+              leading={<ProviderGlyph providerId={thread.providerId} provider={provider} />}
               fadeContent
               trailing={
                 <span className="pointer-events-none relative flex shrink-0 items-center gap-1.5">
@@ -329,10 +340,9 @@ export function ThreadCard({
                     <>
                       {unpinButton}
                       {isWoke ? <WokeMarker onDismiss={onAcknowledgeWake} /> : null}
-                      <CompactStatusOrTime thread={thread} now={now} />
+                      <StatusOrTime thread={thread} now={now} />
                     </>
                   )}
-                  <ProviderGlyph providerId={thread.providerId} provider={provider} />
                 </span>
               }
             />
@@ -340,14 +350,17 @@ export function ThreadCard({
             <div
               data-parent-card=""
               data-settling={isSettling ? "" : undefined}
+              data-row-metadata={metadata.hasAny ? "true" : "false"}
               className={cn(
-                "group/card relative rounded-md px-2.5 transition-colors duration-150 ease-out motion-reduce:transition-none",
-                compact ? "flex h-8 items-center gap-2 text-xs" : "py-2",
-                !compact && !showEnvironment && "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1.5 py-1.5",
-                isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
+                "group/card relative flex flex-col justify-center rounded-md px-2 transition-colors duration-150 ease-out motion-reduce:transition-none",
+                "min-h-[var(--bb-sidebar-row-height,28px)] max-md:pointer-coarse:min-h-[var(--bb-sidebar-row-height-coarse,36px)]",
+                metadata.hasAny ? "py-1" : "py-0.5",
+                isActive
+                  ? "bg-state-active bb-sidebar-selected-row text-sidebar-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 // A thread open in another pane gets a weaker tint than the active
                 // row, so the two states stay distinguishable.
-                !isActive && layout !== null && "bg-sidebar-accent/30",
+                !isActive && layout !== null && "bb-sidebar-open-in-split-row",
                 reorder?.isDragging && DRAG_LIFT_CLASS,
               )}
             >
@@ -391,20 +404,11 @@ export function ThreadCard({
                   )}
                 />
               </ThreadDetailsTooltip>
-              <div className="pointer-events-none relative flex h-5 min-w-0 items-center gap-1.5">
-                {showProjectRow ? (
-                  <CardProjectHeader
-                    projectId={thread.projectId}
-                    projectName={projectName}
-                    projectIconUrl={projectIconUrl}
-                    projectColor={projectColor}
-                    isPersonal={isPersonalProject}
-                    sectionName={section?.name ?? null}
-                    sectionColor={sectionColor}
-                  />
-                ) : (
-                  titleLine
-                )}
+              <div className="pointer-events-none relative flex min-h-5 min-w-0 items-center gap-2">
+                <span data-settle-fade="" className="flex shrink-0 items-center">
+                  <ProviderGlyph providerId={thread.providerId} provider={provider} />
+                </span>
+                {titleLine}
                 {/* Show bb's thread shortcut in place of the status while the modifier is held. */}
                 {shortcut ? (
                   <span className={cn(STATUS_SLOT_CLASS, "w-auto")}>
@@ -422,13 +426,14 @@ export function ThreadCard({
                       STATUS_SLOT_CLASS,
                       "group/status-slot pointer-events-auto relative h-5",
                       showParkActions && "[@media(hover:none)]:w-auto [@media(hover:none)]:gap-1.5",
-                      (limit || !showParkActions) && "w-auto min-w-20",
+                      limit || !showParkActions ? "w-auto min-w-20" : "w-auto min-w-0",
                       limit && limitSlotClass("slot", showParkActions, holdParkActions),
-                      !showProjectRow && "w-auto min-w-0",
-                      !showProjectRow &&
+                      !limit &&
                         showParkActions &&
-                        "[@media(hover:hover)]:group-hover/card:min-w-11 has-[:focus-visible]:min-w-11",
-                      !showProjectRow && holdParkActions && "min-w-11",
+                        (thread.isPinned
+                          ? "[@media(hover:hover)]:group-hover/card:min-w-[4.75rem] has-[:focus-visible]:min-w-[4.75rem]"
+                          : "[@media(hover:hover)]:group-hover/card:min-w-[3.25rem] has-[:focus-visible]:min-w-[3.25rem]"),
+                      !limit && holdParkActions && (thread.isPinned ? "min-w-[4.75rem]" : "min-w-[3.25rem]"),
                     )}
                   >
                     <span
@@ -437,7 +442,6 @@ export function ThreadCard({
                         showParkActions &&
                           !limit &&
                           "[@media(hover:hover)]:group-hover/card:opacity-0 [@media(hover:hover)]:group-has-[:focus-visible]/status-slot:opacity-0 [@media(hover:none)]:static [@media(hover:none)]:opacity-100",
-                        showParkActions && !limit && showProjectRow && "absolute inset-y-0 right-0",
                         holdParkActions && !limit && "opacity-0 [@media(hover:none)]:opacity-100",
                       )}
                     >
@@ -456,7 +460,7 @@ export function ThreadCard({
                         <SnoozeSelect
                           label="Snooze thread"
                           snoozePresets={snoozePresets}
-                          triggerClassName="h-5 w-5 border-0 px-0.5 py-0 shadow-none duration-200 ease-out hover:bg-transparent hover:duration-200 hover:text-[color:var(--bb-sidebar-snooze-active)] focus:ring-0 focus-visible:text-[color:var(--bb-sidebar-snooze-active)] data-[state=open]:text-[color:var(--bb-sidebar-snooze-active)] motion-reduce:transition-none [&>svg:last-child]:size-3"
+                          triggerClassName="size-6 justify-center border-0 p-0 shadow-none text-subtle-foreground duration-200 ease-out hover:bg-state-hover hover:duration-200 hover:text-[color:var(--bb-sidebar-snooze-active)] focus:ring-0 focus-visible:text-[color:var(--bb-sidebar-snooze-active)] data-[state=open]:text-[color:var(--bb-sidebar-snooze-active)] motion-reduce:transition-none [&>svg:last-child]:size-3.5"
                           onOpenChange={setIsSnoozeOpen}
                           onSnooze={onSnooze}
                           onPark={onPark}
@@ -467,44 +471,21 @@ export function ThreadCard({
                   </span>
                 )}
               </div>
-              {showProjectRow ? titleLine : null}
-              <div
-                data-settle-fade=""
-                className={cn(
-                  "pointer-events-none relative flex items-center gap-1.5 text-2xs text-muted-foreground",
-                  showEnvironment ? "mt-0.5 h-4" : "h-5",
-                )}
-              >
-                {/* A thread without a worktree still runs somewhere, so the
-                  machine takes the branch's place rather than leaving the line
-                  blank. */}
-                {showEnvironment ? <ThreadLocation thread={thread} showHost={hasMultipleHosts} /> : null}
-                <OpenPortsIndicator thread={thread} />
-                {childThreads.length > 0 ? (
-                  <ChildThreadBadge
-                    threads={childThreads}
-                    childrenByParent={childrenByParent}
-                    expanded={childrenExpanded}
-                    controls={childListId}
-                    onToggle={onToggleChildren}
-                  />
-                ) : null}
-                {thread.environment?.branchName && thread.host ? (
-                  <Icon
-                    name="Computer"
-                    aria-label={`Machine: ${thread.host.name}`}
-                    className="size-3 shrink-0 text-muted-foreground/60"
-                  />
-                ) : null}
-                {thread.activity.workflows > 0 ? (
-                  <ActivityCount label="workflows" count={thread.activity.workflows} />
-                ) : null}
-                {thread.activity.backgroundAgents > 0 ? (
-                  <ActivityCount label="background agents" count={thread.activity.backgroundAgents} />
-                ) : null}
-                {isVisible ? <ThreadPullRequest environmentId={thread.environment?.id ?? null} /> : null}
-                <ProviderGlyph providerId={thread.providerId} provider={provider} />
-              </div>
+              <ThreadMetadataSubline
+                thread={thread}
+                metadata={metadata}
+                projectName={projectName}
+                projectIconUrl={projectIconUrl}
+                projectColor={projectColor}
+                sectionName={section?.name ?? null}
+                sectionColor={sectionColor}
+                hasMultipleHosts={hasMultipleHosts}
+                childThreads={childThreads}
+                childrenByParent={childrenByParent}
+                childrenExpanded={childrenExpanded}
+                childListId={childListId}
+                onToggleChildren={onToggleChildren}
+              />
             </div>
           )}
           {childThreads.length > 0 ? (
@@ -534,8 +515,8 @@ function ParkButton({ label, settling, onActivate }: { label: string; settling: 
         onActivate();
       }}
       className={cn(
-        "bb-sidebar-settle relative flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground",
-        "transition-colors duration-200 ease-out hover:text-[color:var(--bb-sidebar-settle-active)]",
+        "bb-sidebar-settle relative flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-subtle-foreground",
+        "transition-colors duration-200 ease-out hover:bg-state-hover hover:text-[color:var(--bb-sidebar-settle-active)]",
         "focus-visible:text-[color:var(--bb-sidebar-settle-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50",
         "motion-reduce:transition-none",
         settling && "text-[color:var(--bb-sidebar-settle-active)]",
@@ -554,16 +535,5 @@ function ParkButton({ label, settling, onActivate }: { label: string; settling: 
         </span>
       </span>
     </button>
-  );
-}
-
-function ActivityCount({ label, count }: { label: string; count: number }) {
-  return (
-    <span
-      aria-label={`${count} ${label}`}
-      className="shrink-0 rounded bg-muted px-1 font-mono text-2xs text-muted-foreground"
-    >
-      {count}
-    </span>
   );
 }

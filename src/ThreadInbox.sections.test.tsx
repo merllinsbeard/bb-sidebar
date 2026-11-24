@@ -78,6 +78,10 @@ describe("thread sections", () => {
     });
 
     const bar = await screen.findByRole("group", { name: "Filter by section" });
+    // Single-line horizontally scrollable strip (no multi-row wrapping).
+    expect(bar.className).toContain("flex-nowrap");
+    expect(bar.className).toContain("overflow-x-auto");
+    expect(bar.className).toContain("bb-sidebar-no-scrollbar");
     // Stale persisted section id falls back to All once ready.
     expect(within(bar).getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("Ops thread")).toBeDefined();

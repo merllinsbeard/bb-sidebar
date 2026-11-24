@@ -357,9 +357,13 @@ function StopPortButton({
   );
 }
 
-export function OpenPortsIndicator({ thread }: { thread: PluginSidebarThread }) {
+export function useHasOpenPorts(thread: PluginSidebarThread): boolean {
   const ports = useThreadPorts(thread);
-  if (!ports?.some((port) => port.ownerThreadId === thread.id)) return null;
+  return ports?.some((port) => port.ownerThreadId === thread.id) ?? false;
+}
+
+export function OpenPortsIndicator({ thread }: { thread: PluginSidebarThread }) {
+  if (!useHasOpenPorts(thread)) return null;
   return (
     <span
       role="img"

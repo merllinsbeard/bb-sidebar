@@ -11,7 +11,7 @@ await loadInboxApp();
 
 const projects = [{ id: "proj_1", name: "bb", isPersonal: false, href: "", settingsHref: "" }];
 const card = (title: string) => screen.getByRole("link", { name: title }).closest("[data-parent-card]") as HTMLElement;
-const folded = (title: string) => card(title).classList.contains("h-8");
+const folded = (title: string) => card(title).hasAttribute("data-compact-row");
 
 function renderCompactAll(
   threads: PluginSidebarThread[],

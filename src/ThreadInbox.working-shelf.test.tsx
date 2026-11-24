@@ -44,7 +44,7 @@ describe("parking threads", () => {
     });
     // The shelf renders once the lifecycle read resolves.
     const shelf = await screen.findByRole("region", { name: "Settled" });
-    expect(within(shelf).getByText(/Settled \(1\)/)).toBeDefined();
+    expect(within(shelf).getByRole("button", { name: "Settled (1)" })).toBeDefined();
     // Collapsed by default: parked work is out of the way, never gone.
     expect(screen.queryByText("Finished work")).toBeNull();
     fireEvent.click(within(shelf).getByRole("button", { expanded: false }));
@@ -141,7 +141,7 @@ describe("parking threads", () => {
     expect(snooze.querySelector('[data-icon="Clock"]')).not.toBeNull();
     expect(snooze.querySelector('[data-icon="ChevronDown"]')).not.toBeNull();
     expect(snooze.classList.contains("[&>svg:last-child]:hidden")).toBe(true);
-    expect(snooze.classList.contains("w-5")).toBe(true);
+    expect(snooze.classList.contains("size-6")).toBe(true);
     fireEvent.keyDown(snooze, { key: "Enter" });
     expect(await screen.findByRole("option", { name: "1 hour" })).toBeDefined();
     expect(screen.getByRole("option", { name: "Wait refresh (5 hours)" })).toBeDefined();
@@ -246,11 +246,11 @@ describe("parking threads", () => {
       const card = (title: string) => screen.getByRole("link", { name: title }).closest("[data-parent-card]")!;
       await screen.findByRole("link", { name: "Busy work" });
 
-      await waitFor(() => expect(card("Busy work").classList.contains("h-8")).toBe(compactWorkingThreads));
-      expect(card("Asking work").classList.contains("h-8")).toBe(false);
-      expect(card("Idle work").classList.contains("h-8")).toBe(false);
-      // The folded row keeps the working glyph and the full label for screen readers.
-      expect(card("Busy work").querySelector('[data-icon="Working"]') !== null).toBe(compactWorkingThreads);
+      await waitFor(() => expect(card("Busy work").hasAttribute("data-compact-row")).toBe(compactWorkingThreads));
+      expect(card("Asking work").hasAttribute("data-compact-row")).toBe(false);
+      expect(card("Idle work").hasAttribute("data-compact-row")).toBe(false);
+      // Both full and compact working rows show the native working glyph and accessible label.
+      expect(card("Busy work").querySelector('[data-icon="Working"]')).not.toBeNull();
       expect(within(card("Busy work") as HTMLElement).getByText("Working")).toBeDefined();
     },
   );
@@ -319,7 +319,7 @@ describe("parking threads", () => {
       },
     });
     const isCompact = (title: string) =>
-      screen.getByRole("link", { name: title }).closest("[data-parent-card]")!.classList.contains("h-8");
+      screen.getByRole("link", { name: title }).closest("[data-parent-card]")!.hasAttribute("data-compact-row");
     await screen.findByRole("link", { name: "Waiting on child" });
 
     await waitFor(() => expect(isCompact("Waiting on child")).toBe(true));
@@ -411,7 +411,7 @@ describe("parking threads", () => {
       // One line like the other shelves, even with compact mode off.
       for (const title of ["Busy work", "Waiting on child"]) {
         const row = screen.getByRole("link", { name: title }).closest("[data-parent-card]")! as HTMLElement;
-        expect(row.classList.contains("h-8")).toBe(true);
+        expect(row.hasAttribute("data-compact-row")).toBe(true);
         expect(within(row).getByRole("img", { name: "codex" }).querySelector(".rounded-full")).not.toBeNull();
       }
     },
