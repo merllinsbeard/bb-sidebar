@@ -110,6 +110,7 @@ describe("server auto-section classifier & CLI", () => {
     projects?: ReturnType<typeof projectsWith>;
     sections?: typeof SECTIONS;
     eventsForThread?: (threadId: string) => unknown[];
+    listThreads?: () => Promise<ReturnType<typeof projectThread>[]>;
   }) {
     const threads = options?.threads ?? [
       projectThread({ id: "thr_1", projectId: "proj_personal", title: "Review Q4 sales deck" }),
@@ -150,6 +151,7 @@ describe("server auto-section classifier & CLI", () => {
         projects: { list: async () => projects as never },
         threadSections: { list: async () => sections as never },
         threads: {
+          ...(options?.listThreads ? { list: options.listThreads as never } : {}),
           get: async ({ threadId }) => {
             const match = threads.find((t) => t.id === threadId);
             if (!match) throw new Error(`Unknown thread ${threadId}`);
@@ -331,7 +333,123 @@ describe("server auto-section classifier & CLI", () => {
     expect(claudeCallCount()).toBe(1);
   });
 
-  it("retries on next thread.idle after a claude failure instead of locking out the thread", async () => {
+  it("reads the first user prompt from client/turn/requested events when client/thread/start params are empty", async () => {
+    const t = projectThread({ id: "thr_req", projectId: "proj_personal", title: null, titleFallback: null });
+    const { bb, harness, updated } = setupHost({
+      threads: [t],
+      eventsForThread: (threadId) => [
+        {
+          id: "ev_0",
+          seq: 0,
+          threadId,
+          createdAt: 1,
+          scope: { kind: "thread" as const },
+          type: "client/thread/start" as const,
+          data: { request: { params: {} } },
+        },
+        {
+          id: "ev_1",
+          seq: 1,
+          threadId,
+          createdAt: 2,
+          scope: { kind: "thread" as const },
+          type: "client/turn/requested" as const,
+          data: {
+            input: [{ type: "text" as const, text: "Draft enterprise pricing quote for Acme" }],
+          },
+        },
+      ],
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_req", "--json"]);
+    expect(res.exitCode).toBe(0);
+    expect(updated).toEqual([{ threadId: "thr_req", sectionId: "sec_sales" }]);
+    expect(claudeCall(1).stdin).toContain("Draft enterprise pricing quote for Acme");
+  });
+
+  it("includes recent sectioned thread examples while excluding target, child, and hidden threads, and tolerates list failures", async () => {
+    const target = projectThread({
+      id: "thr_target",
+      projectId: "proj_personal",
+      sectionId: "sec_sales",
+      title: "Self title must not leak",
+      updatedAt: 999,
+    });
+    const threads = [
+      target,
+      projectThread({
+        id: "thr_sales_new",
+        projectId: "proj_personal",
+        sectionId: "sec_sales",
+        title: 'Q4 enterprise\n  "VIP" renewal',
+        updatedAt: 500,
+      }),
+      projectThread({
+        id: "thr_sales_fallback",
+        projectId: "proj_personal",
+        sectionId: "sec_sales",
+        title: null,
+        titleFallback: "Cold outreach sequence",
+        updatedAt: 400,
+      }),
+      projectThread({
+        id: "thr_sales_child",
+        projectId: "proj_personal",
+        sectionId: "sec_sales",
+        parentThreadId: "thr_sales_new",
+        title: "Child thread excluded",
+        updatedAt: 800,
+      }),
+      projectThread({
+        id: "thr_sales_hidden",
+        projectId: "proj_personal",
+        sectionId: "sec_sales",
+        visibility: "hidden",
+        title: "Hidden thread excluded",
+        updatedAt: 850,
+      }),
+      projectThread({
+        id: "thr_ops_1",
+        projectId: "proj_personal",
+        sectionId: "sec_ops",
+        title: "Rotate production TLS certificates",
+        latestAttentionAt: 300,
+      }),
+    ];
+    const { bb, harness } = setupHost({ threads });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    const res = await harness.behavior.runCli(["classify", "--thread", "thr_target", "--force", "--dry-run", "--json"]);
+    expect(res.exitCode).toBe(0);
+    const stdin = claudeCall(1).stdin;
+    expect(stdin).toContain('- Sales (examples: "Q4 enterprise \'VIP\' renewal"; "Cold outreach sequence")');
+    expect(stdin).toContain('- Ops & Infra (examples: "Rotate production TLS certificates")');
+    expect(stdin).toContain("\n- Sidebar\n");
+    expect(stdin).not.toContain('examples: "Self title must not leak"');
+    expect(stdin).not.toContain("Child thread excluded");
+    expect(stdin).not.toContain("Hidden thread excluded");
+
+    const failingHost = setupHost({
+      threads: [projectThread({ id: "thr_fallback", projectId: "proj_personal", title: "Enterprise follow-up" })],
+      listThreads: async () => {
+        throw new Error("list unavailable");
+      },
+    });
+    await plugin(failingHost.bb);
+    disposers.push(() => failingHost.harness.lifecycle.dispose());
+
+    const fallbackRes = await failingHost.harness.behavior.runCli(["classify", "--thread", "thr_fallback", "--json"]);
+    expect(fallbackRes.exitCode).toBe(0);
+    expect(failingHost.updated).toEqual([{ threadId: "thr_fallback", sectionId: "sec_sales" }]);
+    expect(claudeCall(2).stdin).toContain("\n- Sales\n");
+  });
+
+  it("throttles automatic retries during failure cooldown, keeps CLI unblocked, and retries once cooldown expires", async () => {
+    let now = 1_700_000_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
     const t = projectThread({ id: "thr_retry", projectId: "proj_personal", title: "Enterprise sales" });
     const { bb, harness, updated } = setupHost({ threads: [t] });
     await plugin(bb);
@@ -349,8 +467,18 @@ describe("server auto-section classifier & CLI", () => {
     process.env.FAKE_CLAUDE_STDERR = "";
     process.env.FAKE_CLAUDE_STDOUT = "Sales";
     await triggerIdle(harness, t);
-    await vi.waitFor(() => expect(updated).toEqual([{ threadId: "thr_retry", sectionId: "sec_sales" }]));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(claudeCallCount()).toBe(1);
+    expect(updated).toEqual([]);
+
+    const cliDryRun = await harness.behavior.runCli(["classify", "--thread", "thr_retry", "--dry-run", "--json"]);
+    expect(cliDryRun.exitCode).toBe(0);
     expect(claudeCallCount()).toBe(2);
+
+    now += 5 * 60 * 1_000 + 1;
+    await triggerIdle(harness, t);
+    await vi.waitFor(() => expect(updated).toEqual([{ threadId: "thr_retry", sectionId: "sec_sales" }]));
+    expect(claudeCallCount()).toBe(3);
   });
 
   it("does not re-invoke claude after terminal assigned or unmatched decisions and respects autoClassifySections toggle", async () => {
