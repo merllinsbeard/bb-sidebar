@@ -373,6 +373,10 @@ function ChildThreadRow({
         className={cn(
           "group/child flex w-full items-center rounded-md text-left transition-colors duration-150 ease-out motion-reduce:transition-none",
           "h-[var(--bb-sidebar-row-height,28px)] max-md:pointer-coarse:h-9",
+          // The open chat gets the same native selection state as an active parent card.
+          isActive
+            ? "bg-state-active bb-sidebar-selected-row text-sidebar-foreground hover:bg-state-active"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
           needsYou &&
             !isActive &&
             cn(
@@ -383,10 +387,6 @@ function ChildThreadRow({
               // transparent in light, where the cream band already reads.
               "shadow-[inset_2px_0_0_0_var(--bb-sidebar-needs-you-accent)]",
             ),
-          // The open chat gets the same native selection state as an active parent card.
-          isActive
-            ? "bg-state-active bb-sidebar-selected-row text-sidebar-foreground hover:bg-state-active"
-            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         )}
       >
         <ThreadDetailsTooltip thread={thread} disabled={isRenaming} isOpen={isActive}>

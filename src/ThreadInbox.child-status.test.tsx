@@ -225,6 +225,8 @@ describe("ThreadInbox", () => {
       name: "Open child thread: Pending runtime child, Needs you",
     }).parentElement!;
     expect(needsYouRow.className).toContain("bg-[color:var(--bb-sidebar-needs-you-tint)]");
+    expect(needsYouRow.className).toContain("hover:bg-[color:var(--bb-sidebar-needs-you-tint-hover)]");
+    expect(needsYouRow.className).not.toContain("hover:bg-sidebar-accent");
     expect(needsYouRow.className).toContain("shadow-[inset_2px_0_0_0_var(--bb-sidebar-needs-you-accent)]");
     // and only that row: the rule is the tint's partner, not a row border.
     expect(
