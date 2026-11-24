@@ -2,7 +2,7 @@ import type { ComponentProps, CSSProperties, HTMLAttributes, ReactNode } from "r
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { InlineThreadTitle } from "./InlineThreadTitle";
 import { ProjectFavicon, ProjectStripe } from "./ProjectFavicon";
-import { SectionBadge } from "./SectionBadge";
+import { isDuplicateSectionName, SectionDot } from "./SectionBadge";
 import { ThreadDetailsTooltip } from "./ThreadDetailsTooltip";
 import { cn } from "./lib/utils";
 import { DRAG_LIFT_CLASS } from "./drag-preview";
@@ -127,7 +127,7 @@ export function CompactRow({
                 projectIconOnly
                   ? "sr-only"
                   : cn(
-                      "max-w-[35%] shrink truncate text-xs",
+                      "max-w-[26%] shrink truncate text-xs",
                       projectColor
                         ? "bb-sidebar-project-name"
                         : !muted || isActive
@@ -138,8 +138,8 @@ export function CompactRow({
             >
               {projectName}
             </span>
-            {sectionName && !projectIconOnly ? (
-              <SectionBadge name={sectionName} colorStyle={sectionColor} pill className="max-w-[28%]" />
+            {sectionName && !projectIconOnly && !isDuplicateSectionName(projectName, sectionName) ? (
+              <SectionDot name={sectionName} colorStyle={sectionColor} />
             ) : null}
             {!projectIconOnly ? (
               <span
@@ -156,20 +156,7 @@ export function CompactRow({
             ) : null}
           </>
         ) : sectionName && !isRenaming ? (
-          <>
-            <SectionBadge name={sectionName} colorStyle={sectionColor} className="max-w-[35%] shrink" />
-            <span
-              aria-hidden="true"
-              className={cn(
-                "shrink-0 text-sm leading-none",
-                !muted || isActive
-                  ? "text-muted-foreground/60"
-                  : "text-muted-foreground/45 group-hover/slim:text-muted-foreground/60",
-              )}
-            >
-              ·
-            </span>
-          </>
+          <SectionDot name={sectionName} colorStyle={sectionColor} includeLabel />
         ) : null}
         <InlineThreadTitle
           thread={thread}

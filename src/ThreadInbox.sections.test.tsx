@@ -2,7 +2,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { renderSlot } from "./test-slot";
-import { defaultProviders, inbox, listProps, loadInboxApp, thread, toastMocks } from "./test-inbox";
+import {
+  defaultProviders,
+  defaultSidebarSettings,
+  inbox,
+  listProps,
+  loadInboxApp,
+  thread,
+  toastMocks,
+} from "./test-inbox";
 import { STORAGE_KEYS } from "./lib/storage-keys";
 
 vi.mock("sonner", async () => (await import("./test-inbox")).sonnerMock());
@@ -183,5 +191,69 @@ describe("thread sections", () => {
     expect(screen.getByText("Top-level unsorted")).toBeDefined();
     expect(screen.queryByText("Sectioned parent")).toBeNull();
     expect(screen.queryByText("Subagent child")).toBeNull();
+  });
+
+  it("deduplicates matching project and section names and keeps compact working rows readable with a dot", async () => {
+    const sameSections = [
+      { id: "sec_oracle", name: "oracle-enterprise", createdAt: 1, updatedAt: 1 },
+      { id: "sec_homelab", name: "homelab", createdAt: 2, updatedAt: 2 },
+    ];
+    const sameProjects = [
+      { id: "proj_personal", name: "Personal", isPersonal: true, href: "", settingsHref: "" },
+      { id: "proj_oracle", name: "oracle-enterprise", isPersonal: false, href: "", settingsHref: "" },
+    ];
+    renderSlot(inbox, listProps, {
+      sidebarThreads: {
+        status: "ready",
+        threads: [
+          thread({
+            id: "t_full_same",
+            projectId: "proj_oracle",
+            sectionId: "sec_oracle",
+            title: "Full duplicate identity",
+          }),
+          thread({
+            id: "t_work_same",
+            projectId: "proj_oracle",
+            sectionId: "sec_oracle",
+            title: "Working duplicate identity",
+            indicator: "runtime",
+          }),
+          thread({
+            id: "t_work_personal",
+            projectId: "proj_personal",
+            sectionId: "sec_homelab",
+            title: "Working personal section",
+            indicator: "runtime",
+          }),
+        ],
+        projects: sameProjects,
+        sections: sameSections,
+      },
+      providers: { status: "ready", providers: defaultProviders },
+      rpc: {
+        getSidebarSettings: () => ({
+          ...defaultSidebarSettings,
+          inactiveThreadsEnabled: false,
+          workingShelf: true,
+        }),
+        listLifecycle: () => ({ rows: [] }),
+      },
+    });
+
+    const fullRow = (await screen.findByRole("link", { name: "Full duplicate identity" })).closest("li")!;
+    expect(within(fullRow).getAllByText("oracle-enterprise")).toHaveLength(1);
+    expect(fullRow.querySelector("[data-section-badge]")).toBeNull();
+
+    const workingSameRow = (await screen.findByRole("link", { name: "Working duplicate identity" })).closest("li")!;
+    expect(within(workingSameRow).getAllByText("oracle-enterprise")).toHaveLength(1);
+    expect(workingSameRow.querySelector("[data-section-badge]")).toBeNull();
+    expect(workingSameRow.querySelector("[data-section-dot]")).toBeNull();
+
+    const workingPersonalRow = screen.getByRole("link", { name: "Working personal section" }).closest("li")!;
+    expect(workingPersonalRow.querySelector("[data-section-badge]")).toBeNull();
+    expect(workingPersonalRow.querySelector("[data-section-dot]")?.getAttribute("title")).toBe("homelab");
+    expect(within(workingPersonalRow).getByText("homelab").classList.contains("sr-only")).toBe(true);
+    expect(within(workingPersonalRow).queryByText("·")).toBeNull();
   });
 });
