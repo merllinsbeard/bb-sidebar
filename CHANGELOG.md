@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Clearer section hierarchy under Active and wider separation between top-level shelves.** Section groups inside Active now sit in an indented container with a subtle vertical guide, the unsorted Threads group shows a hollow dot aligned with named section dots so it reads as an unassigned area rather than a sibling shelf, and top-level shelves (Pinned, Active, Working, Inactive, Snoozed, Parked, Settled) have wider vertical spacing between them.
+
 ### Fixed
 
 - **Automatic section classification runs through Claude Code Haiku and retries after errors.** Section auto-classification now calls `claude -p --model haiku` in an isolated subprocess from the temp directory instead of spawning hidden Antigravity helper threads. Threads whose classification fails or has no content yet are no longer permanently skipped on subsequent turns; only terminal assignments and unmatched decisions record a completed attempt.
