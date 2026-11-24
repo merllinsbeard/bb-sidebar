@@ -68,7 +68,7 @@ describe("sidebar settings", () => {
   });
 
   it("uses one continuous stripe for a project group and refreshes its custom color", async () => {
-    localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+    localStorage.setItem("bb-sidebar:active-sort:v2", "project");
     let colors = { proj_1: "#123456" };
     const rendered = renderSlot(inbox, listProps, {
       sidebarThreads: {
@@ -107,7 +107,7 @@ describe("sidebar settings", () => {
   });
 
   it("limits stripes by display mode while keeping all project names colored", async () => {
-    localStorage.setItem("bb-sidebar:active-sort:v1", "project");
+    localStorage.setItem("bb-sidebar:active-sort:v2", "project");
     localStorage.setItem("bb-sidebar:single-thread-project-grouping:v1", "false");
     localStorage.setItem("bb-sidebar:shelf-expansion:v1", JSON.stringify({ settled: true, archived: true }));
     let settings = {

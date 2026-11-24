@@ -124,6 +124,7 @@ export function ChildThreadBadge({
   expanded,
   controls,
   onToggle,
+  compact = false,
 }: {
   threads: readonly PluginSidebarThread[];
   /** When given, descendants count toward the status rollup (not the count). */
@@ -131,6 +132,8 @@ export function ChildThreadBadge({
   expanded: boolean;
   controls: string;
   onToggle: () => void;
+  /** Omit leading child dots on tight one-line rows so the thread title stays readable. */
+  compact?: boolean;
 }) {
   const visibleThreads = threads.filter((thread) => !thread.isArchived);
   const count = visibleThreads.length;
@@ -156,12 +159,13 @@ export function ChildThreadBadge({
           onToggle();
         }}
         className={cn(
-          "pointer-events-auto flex h-5 shrink-0 items-center gap-1 rounded-full px-1.5 text-xs font-medium",
+          "pointer-events-auto flex h-5 shrink-0 items-center rounded-full px-1.5 text-xs font-medium",
+          compact ? "gap-0.5" : "gap-1",
           "outline-none focus-visible:ring-1 focus-visible:ring-ring",
           childStatusBadgeClass(summary.dominant),
         )}
       >
-        <ChildThreadDots threads={threads} />
+        {!compact ? <ChildThreadDots threads={threads} /> : null}
         <span className="tabular-nums">{count}</span>
         {summary.dominant ? (
           <StatusGlyph

@@ -27,7 +27,9 @@ export const STORAGE_KEYS = {
   // Shelf disclosure booleans.
   shelfExpansion: { key: "bb-sidebar:shelf-expansion:v1", evictionPriority: 60 },
   // Active shelf sort mode.
-  activeSort: { key: "bb-sidebar:active-sort:v1", evictionPriority: 70 },
+  activeSort: { key: "bb-sidebar:active-sort:v2", evictionPriority: 70 },
+  // Read-only legacy sort key superseded by v2 so Sections becomes the default.
+  legacyActiveSort: { key: "bb-sidebar:active-sort:v1", evictionPriority: 68 },
   // Last RPC sidebar settings.
   settings: { key: "bb-sidebar:settings-cache:v1", evictionPriority: 80 },
   // Read-only legacy project grouping migration.

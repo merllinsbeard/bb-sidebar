@@ -351,4 +351,29 @@ describe("thread sections", () => {
     expect(within(workingPersonalRow).getByText("homelab").classList.contains("sr-only")).toBe(true);
     expect(within(workingPersonalRow).queryByText("·")).toBeNull();
   });
+
+  it("ignores legacy active-sort:v1 manual preference so live browsers pick up Sections default and persist to v2", async () => {
+    window.localStorage.setItem("bb-sidebar:active-sort:v1", "manual");
+    window.localStorage.setItem(STORAGE_KEYS.activeGrouping.key, "true");
+    renderSlot(inbox, listProps, {
+      sidebarThreads: {
+        status: "ready",
+        threads: [thread({ id: "t_ops", projectId: "proj_personal", sectionId: "sec_ops", title: "Ops task" })],
+        projects,
+        sections,
+      },
+      providers: { status: "ready", providers: defaultProviders },
+      rpc: { listLifecycle: () => ({ rows: [] }) },
+    });
+
+    const active = await screen.findByRole("region", { name: "Active" });
+    expect(within(active).getByRole("button", { name: "Sort active threads: Sections" })).toBeDefined();
+    expect(within(active).getByRole("region", { name: "Ops section" })).toBeDefined();
+    expect(window.localStorage.getItem(STORAGE_KEYS.activeSort.key)).toBeNull();
+
+    fireEvent.keyDown(within(active).getByRole("button", { name: "Sort active threads: Sections" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("radio", { name: "Manual order" }), { detail: 1 });
+    await waitFor(() => expect(window.localStorage.getItem(STORAGE_KEYS.activeSort.key)).toBe("manual"));
+    expect(STORAGE_KEYS.activeSort.key).toBe("bb-sidebar:active-sort:v2");
+  });
 });

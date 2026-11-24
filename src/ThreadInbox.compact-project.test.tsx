@@ -107,4 +107,95 @@ describe("Compact project display", () => {
       }
     });
   });
+
+  it("collapses project text to sr-only on crowded compact rows with children or open ports", async () => {
+    const now = Date.now();
+    renderSlot(inbox, listProps, {
+      sidebarThreads: {
+        status: "ready",
+        projects: [{ id: "proj_1", name: "oracle-enterprise", isPersonal: false, href: "", settingsHref: "" }],
+        threads: [
+          thread({ id: "plain-working", title: "Plain working", indicator: "runtime", updatedAt: now }),
+          thread({ id: "child-working", title: "Working with children", indicator: "runtime", updatedAt: now }),
+          thread({ id: "child-1", title: "Subagent", parentThreadId: "child-working", updatedAt: now }),
+          thread({
+            id: "ports-working",
+            title: "Working with ports",
+            indicator: "runtime",
+            updatedAt: now,
+            environment: {
+              id: "env_ports",
+              name: "Worktree",
+              branchName: "main",
+              workspaceDisplayKind: "managed-worktree",
+              path: null,
+              isWorktree: true,
+              providerId: null,
+            },
+          }),
+          thread({ id: "settled-plain", title: "Plain settled", updatedAt: now }),
+          thread({ id: "settled-children", title: "Settled with children", updatedAt: now }),
+          thread({
+            id: "settled-child",
+            title: "Settled subagent",
+            parentThreadId: "settled-children",
+            updatedAt: now,
+          }),
+        ],
+      },
+      rpc: {
+        getSidebarSettings: () => ({
+          ...defaultSidebarSettings,
+          inactiveThreadsEnabled: false,
+          compactProjectIconOnly: false,
+          workingShelf: true,
+        }),
+        listLifecycle: () => ({
+          rows: [
+            { threadId: "settled-plain", settledAt: now, snoozedUntil: null, snoozedAt: null },
+            { threadId: "settled-children", settledAt: now, snoozedUntil: null, snoozedAt: null },
+          ],
+        }),
+        getOpenPorts: () => ({
+          groups: [
+            {
+              environmentId: "env_ports",
+              ports: [
+                {
+                  port: 3000,
+                  processName: "node",
+                  pid: 1234,
+                  address: "127.0.0.1",
+                  source: "process" as const,
+                  ownerThreadId: "ports-working",
+                },
+              ],
+            },
+          ],
+        }),
+      },
+    });
+
+    const row = (title: string) => screen.getByText(title).closest("li")!;
+    fireEvent.click(await screen.findByRole("button", { name: "Settled (2)" }));
+
+    await waitFor(() => {
+      // Plain Working and Settled rows keep visible project name when compactProjectIconOnly is off.
+      for (const title of ["Plain working", "Plain settled"]) {
+        const card = row(title);
+        expect(card.querySelector("[data-compact-row]")).not.toBeNull();
+        expect(card.querySelector("[data-letter]")).not.toBeNull();
+        expect(within(card).getByText("oracle-enterprise").classList.contains("sr-only")).toBe(false);
+        expect(within(card).getByText("·")).toBeDefined();
+      }
+      // Crowded rows (children or open ports) keep ProjectFavicon and collapse text to sr-only.
+      for (const title of ["Working with children", "Working with ports", "Settled with children"]) {
+        const card = row(title);
+        expect(card.querySelector("[data-compact-row]")).not.toBeNull();
+        expect(card.querySelector("[data-letter]")).not.toBeNull();
+        expect(within(card).getByText("oracle-enterprise").classList.contains("sr-only")).toBe(true);
+        expect(within(card).queryByText("·")).toBeNull();
+      }
+    });
+  });
 });

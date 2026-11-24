@@ -7,6 +7,9 @@ import { STORAGE_KEYS } from "./lib/storage-keys";
 function readInitialSortPreference(): ActiveSortMode | null {
   const stored = readStorageRaw(STORAGE_KEYS.activeSort.key);
   if (stored && isActiveSortMode(stored)) return stored;
+  // v1 eagerly wrote "manual" before Sections became the default; ignore v1 and
+  // do not fall back to the older active-grouping toggle that v1 superseded.
+  if (readStorageRaw(STORAGE_KEYS.legacyActiveSort.key) !== null) return null;
   // Preserve one-way migration from the legacy project-grouping toggle.
   return readStorageRaw(STORAGE_KEYS.activeGrouping.key) === "true" ? "project" : null;
 }

@@ -291,7 +291,7 @@ export function ThreadCard({
               thread={thread}
               tone="normal"
               showProject={showProject && !isPersonalProject}
-              projectIconOnly={projectIconOnly}
+              projectIconOnly={projectIconOnly || childThreads.length > 0 || hasOpenPorts}
               projectName={projectName}
               projectIconUrl={projectIconUrl}
               projectColor={projectColor}
@@ -326,7 +326,7 @@ export function ThreadCard({
               leading={<ProviderGlyph providerId={thread.providerId} provider={provider} />}
               fadeContent
               trailing={
-                <span className="pointer-events-none relative flex shrink-0 items-center gap-1.5">
+                <span className="pointer-events-none relative flex shrink-0 items-center gap-1">
                   <OpenPortsIndicator thread={thread} />
                   {childThreads.length > 0 ? (
                     <ChildThreadBadge
@@ -335,6 +335,7 @@ export function ThreadCard({
                       expanded={childrenExpanded}
                       controls={childListId}
                       onToggle={onToggleChildren}
+                      compact
                     />
                   ) : null}
                   {shortcut ? (

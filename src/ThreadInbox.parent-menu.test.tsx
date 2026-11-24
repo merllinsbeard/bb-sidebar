@@ -21,7 +21,7 @@ await loadInboxApp();
 describe("parent thread menu", () => {
   it("orders parent choices by recent activity regardless of pin, shelf, or sidebar sort", async () => {
     const now = Date.now();
-    localStorage.setItem("bb-sidebar:active-sort:v1", "created");
+    localStorage.setItem("bb-sidebar:active-sort:v2", "created");
     renderSlot(inbox, listProps, {
       sidebarThreads: {
         status: "ready",
