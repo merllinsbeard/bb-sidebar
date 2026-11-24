@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./components/Popover";
 import { cn } from "./lib/utils";
 
 const SORT_LABELS: Record<ActiveSortMode, string> = {
+  section: "Sections",
   manual: "Manual order",
   activity: "Recent activity",
   waiting: "Waiting longest",
@@ -15,6 +16,7 @@ const SORT_LABELS: Record<ActiveSortMode, string> = {
 export function ActiveSortPicker({
   mode,
   onModeChange,
+  hasSections = true,
   groupEnvironments,
   onGroupEnvironmentsChange,
   groupSingleThreadProjects,
@@ -22,6 +24,7 @@ export function ActiveSortPicker({
 }: {
   mode: ActiveSortMode;
   onModeChange: (mode: ActiveSortMode) => void;
+  hasSections?: boolean;
   groupEnvironments: boolean;
   onGroupEnvironmentsChange: (enabled: boolean) => void;
   groupSingleThreadProjects: boolean;
@@ -30,6 +33,8 @@ export function ActiveSortPicker({
   const [open, setOpen] = useState(false);
   const groupName = useId();
   const contentRef = useRef<HTMLDivElement>(null);
+  const defaultMode: ActiveSortMode = hasSections ? "section" : "manual";
+  const modes = ACTIVE_SORT_MODES.filter((value) => value !== "section" || hasSections || mode === "section");
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -45,7 +50,7 @@ export function ActiveSortPicker({
           }}
           className={cn(
             "absolute right-7 top-1/2 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-md border-0 bg-transparent p-0 text-subtle-foreground shadow-none transition-colors duration-150 hover:bg-state-hover hover:text-sidebar-foreground hover:duration-0 focus:outline-none focus:ring-0 focus-visible:ring-1 focus-visible:ring-ring",
-            mode !== "manual" && "bg-state-active text-sidebar-foreground",
+            mode !== defaultMode && "bg-state-active text-sidebar-foreground",
           )}
         >
           <Icon name="ArrowUpDown" className="size-3" />
@@ -62,7 +67,7 @@ export function ActiveSortPicker({
         }}
       >
         <div role="radiogroup" aria-label="Sort by">
-          {ACTIVE_SORT_MODES.map((value) => (
+          {modes.map((value) => (
             <label key={value} className="block cursor-default">
               <input
                 type="radio"

@@ -34,6 +34,8 @@ import { usePinnedReorder } from "./usePinnedReorder";
 import { useCollapseChildrenOnSettle } from "./useCollapseChildrenOnSettle";
 import { useInboxReorder } from "./useInboxReorder";
 import { useInboxProjectGroups } from "./useInboxProjectGroups";
+import { useInboxSectionGroups } from "./useInboxSectionGroups";
+import { useActiveSortMode } from "./useActiveSortMode";
 import { environmentUnitKey } from "./environment-groups";
 import { useWorkingSince } from "./useWorkingSince";
 import { useSidebarSettings } from "./useSidebarSettings";
@@ -49,7 +51,7 @@ import { useWorkingForDisplay } from "./StatusSlot";
 import { useScrollFade } from "./useScrollFade";
 import { useShelveActions } from "./useShelveActions";
 import { usePersistedPreference } from "./lib/use-persisted-preference";
-import { activeSortCodec, childExpansionCodec, shelfExpansionCodec } from "./lib/inbox-preference-codecs";
+import { childExpansionCodec, shelfExpansionCodec } from "./lib/inbox-preference-codecs";
 const SETTLED_INITIAL_LIMIT = 10;
 
 type ActiveShelfKind = "pinned" | "inbox";
@@ -127,7 +129,8 @@ function ThreadInboxContent({
     STORAGE_KEYS.shelfExpansion.key,
     shelfExpansionCodec,
   );
-  const [activeSortMode, setActiveSortMode] = usePersistedPreference(STORAGE_KEYS.activeSort.key, activeSortCodec);
+  const [activeSortMode, setActiveSortMode] = useActiveSortMode(sections.length > 0);
+  const effectiveSectionFilter = activeSortMode === "section" ? null : sectionFilter;
   const [settledLimit, setSettledLimit] = useState(SETTLED_INITIAL_LIMIT);
   const [renamingShelfLocks, setRenamingShelfLocks] = useRenamingShelfLocks(threads, lifecycle);
   const providerById = useMemo(() => new Map(providers.map((provider) => [provider.id, provider])), [providers]);
@@ -170,7 +173,7 @@ function ThreadInboxContent({
     now,
     renamingShelfLocks,
     scope,
-    sectionFilter,
+    sectionFilter: effectiveSectionFilter,
     threads,
     workingShelfEnabled,
   });
@@ -254,13 +257,8 @@ function ThreadInboxContent({
     projectMode: activeSortMode === "project",
     orderReady: status === "ready" && inboxReorder.loaded,
   });
-  const {
-    inbox,
-    visibleInbox,
-    units: inboxProjectUnits,
-    view: inboxProjectView,
-    toggleProjectCollapse,
-  } = projectGroups;
+  const { inbox, visibleInbox, view: inboxProjectView, toggleProjectCollapse } = projectGroups;
+  const sectionGroups = useInboxSectionGroups({ inbox, sections, activeThreadId: activeListThreadId });
   const projectGroupsRef = useRef(projectGroups);
   projectGroupsRef.current = projectGroups;
   const visibleWorking = useMemo(
@@ -297,15 +295,14 @@ function ThreadInboxContent({
    */
   const reorderScope = useCallback(
     (key: string, shelf: "pinned" | "inbox"): ReorderScope => {
-      if (shelf === "inbox" && activeSortMode === "project") {
-        return projectGroups.reorderScope(key);
-      }
+      if (shelf === "inbox" && activeSortMode === "project") return projectGroups.reorderScope(key);
+      if (shelf === "inbox" && activeSortMode === "section") return sectionGroups.reorderScope(key);
       return {
         mode: "thread",
         ids: (shelf === "pinned" ? visiblePinned : visibleInbox).map((candidate) => candidate.id),
       };
     },
-    [activeSortMode, projectGroups, visibleInbox, visiblePinned],
+    [activeSortMode, projectGroups, sectionGroups, visibleInbox, visiblePinned],
   );
   const reorderScopeRef = useRef(reorderScope);
   reorderScopeRef.current = reorderScope;
@@ -429,6 +426,7 @@ function ThreadInboxContent({
     sectionById,
     sectionColorById,
     sectionFilter,
+    activeSortMode,
     projectIconRevision,
     projects,
     sidebarSettings,
@@ -487,6 +485,7 @@ function ThreadInboxContent({
         renderActiveThread={renderActiveThread}
         activeSortMode={activeSortMode}
         inboxProjectView={inboxProjectView}
+        sectionGrouping={sectionGroups}
         environmentGrouping={projectGroups}
         reorderControls={reorderControls}
         sortedVisibleInbox={sortedVisibleInbox}

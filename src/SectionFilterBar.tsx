@@ -6,18 +6,14 @@ const PILL_CLASS =
   "inline-flex h-6 max-md:pointer-coarse:h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-normal outline-none transition-colors hover:bg-state-hover hover:text-sidebar-foreground focus-visible:ring-1 focus-visible:ring-ring";
 
 export function SectionFilterBar() {
-  const { sections, sectionColorById, sectionFilter } = useInboxEnvironment();
+  const { sections, sectionColorById, sectionFilter, activeSortMode } = useInboxEnvironment();
   const { setSectionFilter } = useInboxActions();
-  if (sections.length === 0) return null;
+  if (sections.length === 0 || activeSortMode === "section") return null;
 
   const toggle = (target: string) => setSectionFilter((current) => (current === target ? null : target));
 
   return (
-    <div
-      role="group"
-      aria-label="Filter by section"
-      className="bb-sidebar-no-scrollbar flex flex-nowrap items-center gap-1 overflow-x-auto pt-1"
-    >
+    <div role="group" aria-label="Filter by section" className="flex flex-wrap items-center gap-1 pt-1">
       <button
         type="button"
         aria-pressed={sectionFilter === null}

@@ -3,7 +3,7 @@ import type { ChildStatusKind } from "./child-status";
 import type { OrderUnit } from "./pinned-order";
 import { visibleInboxThreads } from "./inbox";
 
-export const ACTIVE_SORT_MODES = ["manual", "activity", "waiting", "created", "project"] as const;
+export const ACTIVE_SORT_MODES = ["section", "manual", "activity", "waiting", "created", "project"] as const;
 export type ActiveSortMode = (typeof ACTIVE_SORT_MODES)[number];
 
 export type ReorderMode = "thread" | "unit";

@@ -280,15 +280,6 @@
   background-color: color-mix(in oklab, var(--bb-sidebar-project) 14%, transparent);
 }
 
-/* Horizontal filter strip stays single-line without chrome scrollbars. */
-.bb-sidebar-no-scrollbar {
-  scrollbar-width: none;
-}
-
-.bb-sidebar-no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
 /* Only our marked toasts use BB's surfaces; the host owns the Toaster. */
 [data-sonner-toast][data-styled="true"].bb-sidebar-toast {
   background: var(--popover);

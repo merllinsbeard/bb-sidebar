@@ -58,6 +58,7 @@ export interface ThreadReorderControls {
 export function ThreadCard({
   thread,
   showProject = true,
+  showSection = true,
   projectIconOnly = false,
   showEnvironment = true,
   isActive,
@@ -74,6 +75,8 @@ export function ThreadCard({
   thread: PluginSidebarThread;
   /** False when a group header already names the project. */
   showProject?: boolean;
+  /** False when a section group header already names the section. */
+  showSection?: boolean;
   projectIconOnly?: boolean;
   showEnvironment?: boolean;
   isActive: boolean;
@@ -110,7 +113,7 @@ export function ThreadCard({
   const provider = providerById.get(thread.providerId) ?? null;
   const projectName = projectNameById.get(thread.projectId) ?? null;
   const isPersonalProject = personalProjectIds.has(thread.projectId);
-  const section = thread.sectionId ? (sectionById.get(thread.sectionId) ?? null) : null;
+  const section = showSection && thread.sectionId ? (sectionById.get(thread.sectionId) ?? null) : null;
   const sectionColor = section ? sectionColorById.get(section.id) : undefined;
   const projectIconUrl = iconUrl(thread.projectId, projectIconRevision);
   const onPark = () => parkThread(thread);

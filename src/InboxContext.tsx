@@ -34,6 +34,7 @@ interface InboxContextInputs {
   sectionById: ReadonlyMap<string, PluginSidebarSection>;
   sectionColorById: ReadonlyMap<string, CSSProperties>;
   sectionFilter: SectionFilter;
+  activeSortMode: ActiveSortMode;
   projectIconRevision: number;
   projects: ReturnType<typeof useSidebarThreads>["projects"];
   sidebarSettings: SidebarSettingsValues | null;
@@ -66,6 +67,7 @@ export function useInboxContextValues({
   sectionById,
   sectionColorById,
   sectionFilter,
+  activeSortMode,
   projectIconRevision,
   projects,
   sidebarSettings,
@@ -97,6 +99,7 @@ export function useInboxContextValues({
       sectionById,
       sectionColorById,
       sectionFilter,
+      activeSortMode,
       projectIconRevision,
       projects,
       sidebarSettings,
@@ -113,6 +116,7 @@ export function useInboxContextValues({
       sectionById,
       sectionColorById,
       sectionFilter,
+      activeSortMode,
       projectIconRevision,
       projects,
       sidebarSettings,
