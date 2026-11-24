@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server";
 import { matchSectionDeterministic, parseClassifiedSection } from "./server-auto-section";
@@ -9,6 +12,37 @@ const SECTIONS = [
   { id: "sec_ops", name: "Ops & Infra", createdAt: 2, updatedAt: 2 },
   { id: "sec_sales", name: "Sales", createdAt: 3, updatedAt: 3 },
 ];
+
+const FAKE_CLAUDE = `#!/bin/sh
+set -eu
+count_file="$FAKE_CLAUDE_DIR/count"
+n=0
+if [ -f "$count_file" ]; then n=$(cat "$count_file"); fi
+n=$((n + 1))
+printf '%s' "$n" > "$count_file"
+printf '%s\\n' "$@" > "$FAKE_CLAUDE_DIR/args-$n.txt"
+pwd > "$FAKE_CLAUDE_DIR/cwd-$n.txt"
+cat > "$FAKE_CLAUDE_DIR/stdin-$n.txt"
+if [ "\${FAKE_CLAUDE_HANG:-}" = "1" ]; then
+  echo $$ > "$FAKE_CLAUDE_DIR/pid"
+  exec sleep 30
+fi
+if [ -n "\${FAKE_CLAUDE_STDERR:-}" ]; then
+  printf '%s\\n' "$FAKE_CLAUDE_STDERR" >&2
+fi
+if [ -n "\${FAKE_CLAUDE_STDOUT:-}" ]; then
+  printf '%s\\n' "$FAKE_CLAUDE_STDOUT"
+fi
+exit "\${FAKE_CLAUDE_EXIT:-0}"
+`;
+
+const FAKE_ENV_KEYS = [
+  "FAKE_CLAUDE_DIR",
+  "FAKE_CLAUDE_STDOUT",
+  "FAKE_CLAUDE_STDERR",
+  "FAKE_CLAUDE_EXIT",
+  "FAKE_CLAUDE_HANG",
+] as const;
 
 describe("auto-section pure helpers", () => {
   it("matches non-personal project names and workspace slugs deterministically", () => {
@@ -35,12 +69,48 @@ describe("auto-section pure helpers", () => {
 });
 
 describe("server auto-section classifier & CLI", () => {
+  const originalPath = process.env.PATH;
+  let binDir: string;
+
+  beforeEach(() => {
+    const cache = join(import.meta.dirname, "..", "node_modules", ".cache");
+    mkdirSync(cache, { recursive: true });
+    binDir = mkdtempSync(join(cache, "fake-claude-"));
+    writeFileSync(join(binDir, "claude"), FAKE_CLAUDE);
+    chmodSync(join(binDir, "claude"), 0o755);
+    process.env.PATH = `${binDir}:/usr/bin:/bin`;
+    for (const key of FAKE_ENV_KEYS) delete process.env[key];
+    process.env.FAKE_CLAUDE_DIR = binDir;
+    process.env.FAKE_CLAUDE_STDOUT = "Sales";
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    process.env.PATH = originalPath;
+    for (const key of FAKE_ENV_KEYS) delete process.env[key];
+    rmSync(binDir, { recursive: true, force: true });
+  });
+
+  function claudeCallCount(): number {
+    const countFile = join(binDir, "count");
+    return existsSync(countFile) ? Number(readFileSync(countFile, "utf8").trim()) : 0;
+  }
+
+  function claudeCall(index = 1) {
+    return {
+      args: readFileSync(join(binDir, `args-${index}.txt`), "utf8")
+        .split("\n")
+        .slice(0, -1),
+      cwd: readFileSync(join(binDir, `cwd-${index}.txt`), "utf8").trim(),
+      stdin: readFileSync(join(binDir, `stdin-${index}.txt`), "utf8"),
+    };
+  }
+
   function setupHost(options?: {
     threads?: ReturnType<typeof projectThread>[];
     projects?: ReturnType<typeof projectsWith>;
     sections?: typeof SECTIONS;
-    modelOutput?: string | null;
-    waitThrows?: boolean;
+    eventsForThread?: (threadId: string) => unknown[];
   }) {
     const threads = options?.threads ?? [
       projectThread({ id: "thr_1", projectId: "proj_personal", title: "Review Q4 sales deck" }),
@@ -57,8 +127,23 @@ describe("server auto-section classifier & CLI", () => {
     ];
     const sections = options?.sections ?? SECTIONS;
     const updated: Array<{ threadId: string; sectionId: string | null }> = [];
-    const deleted: string[] = [];
-    const spawned: unknown[] = [];
+    const defaultEvents = (threadId: string) => [
+      {
+        id: "ev_1",
+        seq: 1,
+        threadId,
+        createdAt: 1,
+        scope: { kind: "thread" as const },
+        type: "item/completed" as const,
+        data: {
+          item: {
+            id: "item_1",
+            type: "userMessage" as const,
+            content: [{ type: "text" as const, text: "Prepare sales proposal for enterprise lead" }],
+          },
+        },
+      } as never,
+    ];
 
     const { bb, harness } = createFakePluginHost({
       pluginId: "bb-sidebar",
@@ -72,41 +157,8 @@ describe("server auto-section classifier & CLI", () => {
             return makeThreadResponse(match);
           },
           events: {
-            list: async ({ threadId }) => [
-              {
-                id: "ev_1",
-                seq: 1,
-                threadId,
-                createdAt: 1,
-                scope: { kind: "thread" as const },
-                type: "item/completed" as const,
-                data: {
-                  item: {
-                    id: "item_1",
-                    type: "userMessage" as const,
-                    content: [{ type: "text" as const, text: "Prepare sales proposal for enterprise lead" }],
-                  },
-                },
-              } as never,
-            ],
-          },
-          spawn: async (args) => {
-            spawned.push(args);
-            return makeThreadResponse({ id: "thr_helper_1", visibility: "hidden" });
-          },
-          wait: async ({ threadId }) => {
-            if (options?.waitThrows) throw new Error("timeout");
-            return {
-              matched: true as const,
-              target: { kind: "status" as const, status: "idle" as const },
-              thread: makeThreadResponse({ id: threadId, status: "idle" }),
-              threadId,
-            };
-          },
-          output: async () => ({ output: options?.modelOutput ?? "Sales" }),
-          delete: async ({ threadId }) => {
-            deleted.push(threadId);
-            return { ok: true as const };
+            list: async ({ threadId }) =>
+              (options?.eventsForThread ? options.eventsForThread(threadId) : defaultEvents(threadId)) as never,
           },
           update: async ({ threadId, sectionId }) => {
             updated.push({ threadId, sectionId: sectionId ?? null });
@@ -118,12 +170,25 @@ describe("server auto-section classifier & CLI", () => {
       },
     });
 
-    return { bb, harness, threads, updated, deleted, spawned };
+    return { bb, harness, threads, updated };
   }
 
-  it("classifies deterministically with zero AI spawns and supports --dry-run", async () => {
+  async function triggerIdle(harness: ReturnType<typeof setupHost>["harness"], t: ReturnType<typeof projectThread>) {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      await harness.behavior.emitThreadEvent("thread.idle", {
+        thread: makeThreadResponse(t),
+        lastAssistantText: null,
+      });
+      await vi.advanceTimersByTimeAsync(4_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it("classifies deterministically with zero claude invocations and supports --dry-run", async () => {
     const t = projectThread({ id: "thr_det", projectId: "proj_1", title: "Fix sidebar bug" });
-    const { bb, harness, updated, spawned } = setupHost({
+    const { bb, harness, updated } = setupHost({
       threads: [t],
       projects: projectsWith([t]),
     });
@@ -139,7 +204,7 @@ describe("server auto-section classifier & CLI", () => {
       ],
     });
     expect(updated).toEqual([]);
-    expect(spawned).toEqual([]);
+    expect(claudeCallCount()).toBe(0);
 
     const real = await harness.behavior.runCli(["classify", "--thread", "thr_det", "--json"]);
     expect(real.exitCode).toBe(0);
@@ -148,38 +213,91 @@ describe("server auto-section classifier & CLI", () => {
       results: [{ threadId: "thr_det", status: "assigned", method: "deterministic", section: { id: "sec_sidebar" } }],
     });
     expect(updated).toEqual([{ threadId: "thr_det", sectionId: "sec_sidebar" }]);
-    expect(spawned).toEqual([]);
+    expect(claudeCallCount()).toBe(0);
   });
 
-  it("falls back to a hidden helper thread and always deletes it even on timeout", async () => {
-    const { bb, harness, updated, deleted, spawned } = setupHost({ modelOutput: "Sales" });
+  it("invokes isolated claude haiku CLI from tmpdir, assigns matched section, and handles NONE as unmatched", async () => {
+    const t2 = projectThread({ id: "thr_none", projectId: "proj_personal", title: "Random chat" });
+    const { bb, harness, updated } = setupHost({
+      threads: [projectThread({ id: "thr_1", projectId: "proj_personal", title: "Review Q4 sales deck" }), t2],
+    });
     await plugin(bb);
     disposers.push(() => harness.lifecycle.dispose());
 
-    const result = await harness.behavior.runCli(["classify", "--thread", "thr_1", "--json"]);
-    expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout)).toMatchObject({
+    const assigned = await harness.behavior.runCli(["classify", "--thread", "thr_1", "--json"]);
+    expect(assigned.exitCode).toBe(0);
+    expect(JSON.parse(assigned.stdout)).toMatchObject({
       assigned: 1,
       results: [{ threadId: "thr_1", status: "assigned", method: "model", section: { id: "sec_sales" } }],
     });
-    expect(spawned).toEqual([
-      expect.objectContaining({
-        visibility: "hidden",
-        providerId: "antigravity",
-        model: "gemini-4-hydrogen",
-        reasoningLevel: "low",
-      }),
-    ]);
-    expect(deleted).toEqual(["thr_helper_1"]);
     expect(updated).toEqual([{ threadId: "thr_1", sectionId: "sec_sales" }]);
 
-    // Even when waiting fails, the hidden helper thread is still deleted.
-    const failing = setupHost({ waitThrows: true });
-    await plugin(failing.bb);
-    disposers.push(() => failing.harness.lifecycle.dispose());
-    const failed = await failing.harness.behavior.runCli(["classify", "--thread", "thr_1"]);
-    expect(failed.exitCode).toBe(1);
-    expect(failing.deleted).toEqual(["thr_helper_1"]);
+    expect(claudeCallCount()).toBe(1);
+    const call = claudeCall(1);
+    expect(call.cwd).toBe(tmpdir());
+    expect(call.args).toEqual(
+      expect.arrayContaining([
+        "-p",
+        "--safe-mode",
+        "--model",
+        "haiku",
+        "--setting-sources",
+        "",
+        "--strict-mcp-config",
+        "--mcp-config",
+        '{"mcpServers":{}}',
+        "--tools",
+        "",
+        "--disable-slash-commands",
+        "--no-session-persistence",
+        "--system-prompt",
+      ]),
+    );
+    expect(call.stdin).toContain("- Sales");
+    expect(call.stdin).toContain("Prepare sales proposal for enterprise lead");
+
+    process.env.FAKE_CLAUDE_STDOUT = "NONE";
+    const unmatched = await harness.behavior.runCli(["classify", "--thread", "thr_none", "--json"]);
+    expect(unmatched.exitCode).toBe(0);
+    expect(JSON.parse(unmatched.stdout)).toMatchObject({
+      assigned: 0,
+      unmatched: 1,
+      results: [{ threadId: "thr_none", status: "unmatched", method: "model", section: null }],
+    });
+    expect(updated).toHaveLength(1);
+  });
+
+  it("surfaces claude CLI errors cleanly without leaking stdout", async () => {
+    const { bb, harness } = setupHost();
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    process.env.FAKE_CLAUDE_EXIT = "3";
+    process.env.FAKE_CLAUDE_STDERR = "rate limited";
+    process.env.FAKE_CLAUDE_STDOUT = "";
+    const withStderr = await harness.behavior.runCli(["classify", "--thread", "thr_1"]);
+    expect(withStderr.exitCode).toBe(1);
+    expect(withStderr.stderr).toContain("code 3: rate limited");
+
+    process.env.FAKE_CLAUDE_EXIT = "4";
+    process.env.FAKE_CLAUDE_STDERR = "";
+    process.env.FAKE_CLAUDE_STDOUT = "secret prompt echo";
+    const silentFail = await harness.behavior.runCli(["classify", "--thread", "thr_1"]);
+    expect(silentFail.exitCode).toBe(1);
+    expect(silentFail.stderr).toContain("code 4 and printed no error");
+    expect(silentFail.stderr).not.toContain("secret");
+
+    process.env.FAKE_CLAUDE_EXIT = "0";
+    process.env.FAKE_CLAUDE_STDERR = "";
+    process.env.FAKE_CLAUDE_STDOUT = "";
+    const emptyReply = await harness.behavior.runCli(["classify", "--thread", "thr_1"]);
+    expect(emptyReply.exitCode).toBe(1);
+    expect(emptyReply.stderr).toContain("empty reply");
+
+    process.env.PATH = "/nonexistent";
+    const missingBin = await harness.behavior.runCli(["classify", "--thread", "thr_1"]);
+    expect(missingBin.exitCode).toBe(1);
+    expect(missingBin.stderr).toContain("not installed on PATH");
   });
 
   it("skips hidden, child, and already-sectioned threads unless --force is passed", async () => {
@@ -188,7 +306,7 @@ describe("server auto-section classifier & CLI", () => {
       projectThread({ id: "thr_child", projectId: "proj_personal", parentThreadId: "thr_root" }),
       projectThread({ id: "thr_done", projectId: "proj_personal", sectionId: "sec_ops", title: "Already done" }),
     ];
-    const { bb, harness, updated, spawned } = setupHost({ threads, modelOutput: "Sales" });
+    const { bb, harness, updated } = setupHost({ threads });
     await plugin(bb);
     disposers.push(() => harness.lifecycle.dispose());
 
@@ -203,7 +321,7 @@ describe("server auto-section classifier & CLI", () => {
         results: [{ threadId: id, status: "skipped", reason }],
       });
     }
-    expect(spawned).toEqual([]);
+    expect(claudeCallCount()).toBe(0);
     expect(updated).toEqual([]);
 
     const forced = await harness.behavior.runCli(["classify", "--thread", "thr_done", "--force", "--json"]);
@@ -211,45 +329,132 @@ describe("server auto-section classifier & CLI", () => {
       assigned: 1,
       results: [{ threadId: "thr_done", status: "assigned", section: { id: "sec_sales" } }],
     });
+    expect(claudeCallCount()).toBe(1);
   });
 
-  it("auto-classifies once on thread.idle, records attempt idempotently, and respects autoClassifySections toggle", async () => {
-    vi.useFakeTimers();
-    try {
-      const t1 = projectThread({ id: "thr_auto", projectId: "proj_personal", title: "Enterprise sales" });
-      const t2 = projectThread({ id: "thr_off", projectId: "proj_personal", title: "Ignored when off" });
-      const { bb, harness, updated, spawned } = setupHost({ threads: [t1, t2], modelOutput: "Sales" });
-      await plugin(bb);
-      disposers.push(() => harness.lifecycle.dispose());
+  it("retries on next thread.idle after a claude failure instead of locking out the thread", async () => {
+    const t = projectThread({ id: "thr_retry", projectId: "proj_personal", title: "Enterprise sales" });
+    const { bb, harness, updated } = setupHost({ threads: [t] });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
 
-      await harness.behavior.emitThreadEvent("thread.idle", {
-        thread: makeThreadResponse(t1),
-        lastAssistantText: null,
-      });
-      await vi.advanceTimersByTimeAsync(4_000);
-      expect(updated).toEqual([{ threadId: "thr_auto", sectionId: "sec_sales" }]);
-      expect(spawned).toHaveLength(1);
+    process.env.FAKE_CLAUDE_EXIT = "2";
+    process.env.FAKE_CLAUDE_STDERR = "temporary outage";
+    process.env.FAKE_CLAUDE_STDOUT = "";
+    await triggerIdle(harness, t);
+    await vi.waitFor(() => expect(claudeCallCount()).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(updated).toEqual([]);
 
-      // Even if sectionId is cleared externally, the recorded attempt prevents redundant auto-spawns.
-      t1.sectionId = null;
-      await harness.behavior.emitThreadEvent("thread.idle", {
-        thread: makeThreadResponse(t1),
-        lastAssistantText: null,
-      });
-      await vi.advanceTimersByTimeAsync(4_000);
-      expect(spawned).toHaveLength(1);
+    process.env.FAKE_CLAUDE_EXIT = "0";
+    process.env.FAKE_CLAUDE_STDERR = "";
+    process.env.FAKE_CLAUDE_STDOUT = "Sales";
+    await triggerIdle(harness, t);
+    await vi.waitFor(() => expect(updated).toEqual([{ threadId: "thr_retry", sectionId: "sec_sales" }]));
+    expect(claudeCallCount()).toBe(2);
+  });
 
-      // Turning the setting off prevents auto-classification on new threads.
-      await harness.behavior.callRpc("updateSidebarSettings", { autoClassifySections: false });
-      await harness.behavior.emitThreadEvent("thread.idle", {
-        thread: makeThreadResponse(t2),
-        lastAssistantText: null,
-      });
-      await vi.advanceTimersByTimeAsync(4_000);
-      expect(spawned).toHaveLength(1);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("does not re-invoke claude after terminal assigned or unmatched decisions and respects autoClassifySections toggle", async () => {
+    const tAssigned = projectThread({ id: "thr_auto", projectId: "proj_personal", title: "Enterprise sales" });
+    const tUnmatched = projectThread({ id: "thr_unmatched", projectId: "proj_personal", title: "Misc note" });
+    const tCli = projectThread({ id: "thr_cli", projectId: "proj_personal", title: "CLI classified" });
+    const tOff = projectThread({ id: "thr_off", projectId: "proj_personal", title: "Ignored when off" });
+    const { bb, harness, updated } = setupHost({ threads: [tAssigned, tUnmatched, tCli, tOff] });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    await triggerIdle(harness, tAssigned);
+    await vi.waitFor(() => expect(updated).toEqual([{ threadId: "thr_auto", sectionId: "sec_sales" }]));
+    expect(claudeCallCount()).toBe(1);
+
+    // Clearing sectionId manually must not cause automatic re-classification.
+    tAssigned.sectionId = null;
+    await triggerIdle(harness, tAssigned);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(claudeCallCount()).toBe(1);
+
+    // An unmatched (NONE) decision is also terminal for automatic retries.
+    process.env.FAKE_CLAUDE_STDOUT = "NONE";
+    await triggerIdle(harness, tUnmatched);
+    await vi.waitFor(() => expect(claudeCallCount()).toBe(2));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    await triggerIdle(harness, tUnmatched);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(claudeCallCount()).toBe(2);
+
+    // CLI classification records the attempt too, so a later thread.idle does not re-run.
+    process.env.FAKE_CLAUDE_STDOUT = "Sales";
+    const cliRes = await harness.behavior.runCli(["classify", "--thread", "thr_cli", "--json"]);
+    expect(cliRes.exitCode).toBe(0);
+    expect(claudeCallCount()).toBe(3);
+    tCli.sectionId = null;
+    await triggerIdle(harness, tCli);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(claudeCallCount()).toBe(3);
+
+    // Turning the setting off prevents auto-classification on new threads.
+    await harness.behavior.callRpc("updateSidebarSettings", { autoClassifySections: false });
+    await triggerIdle(harness, tOff);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(claudeCallCount()).toBe(3);
+  });
+
+  it("does not lock out a thread skipped for no_content so it classifies once content arrives", async () => {
+    let hasContent = false;
+    const t = projectThread({ id: "thr_empty", projectId: "proj_personal", title: null, titleFallback: null });
+    const { bb, harness, updated } = setupHost({
+      threads: [t],
+      eventsForThread: () =>
+        hasContent
+          ? [
+              {
+                id: "ev_1",
+                seq: 1,
+                threadId: t.id,
+                createdAt: 1,
+                scope: { kind: "thread" as const },
+                type: "item/completed" as const,
+                data: {
+                  item: {
+                    id: "item_1",
+                    type: "userMessage" as const,
+                    content: [{ type: "text" as const, text: "Enterprise sales pipeline review" }],
+                  },
+                },
+              },
+            ]
+          : [],
+    });
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    await triggerIdle(harness, t);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(claudeCallCount()).toBe(0);
+    expect(updated).toEqual([]);
+
+    hasContent = true;
+    await triggerIdle(harness, t);
+    await vi.waitFor(() => expect(updated).toEqual([{ threadId: "thr_empty", sectionId: "sec_sales" }]));
+    expect(claudeCallCount()).toBe(1);
+  });
+
+  it("aborts an in-flight claude process cleanly on plugin disposal", async () => {
+    const { bb, harness } = setupHost();
+    await plugin(bb);
+    disposers.push(() => harness.lifecycle.dispose());
+
+    process.env.FAKE_CLAUDE_HANG = "1";
+    const pending = harness.behavior.runCli(["classify", "--thread", "thr_1"]);
+
+    const pidFile = join(binDir, "pid");
+    await vi.waitFor(() => expect(existsSync(pidFile)).toBe(true), { timeout: 3_000 });
+    const pid = Number(readFileSync(pidFile, "utf8").trim());
+
+    await harness.lifecycle.dispose();
+    const res = await pending;
+    expect(res.exitCode).toBe(1);
+    await vi.waitFor(() => expect(() => process.kill(pid, 0)).toThrow(), { timeout: 2_000 });
   });
 
   it("bulk-classifies unsorted threads via --all and --limit", async () => {
@@ -264,7 +469,7 @@ describe("server auto-section classifier & CLI", () => {
         latestAttentionAt: 100,
       }),
     ];
-    const { bb, harness, updated } = setupHost({ threads, modelOutput: "Sales" });
+    const { bb, harness, updated } = setupHost({ threads });
     await plugin(bb);
     disposers.push(() => harness.lifecycle.dispose());
 

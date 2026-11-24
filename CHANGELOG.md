@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Automatic section classification runs through Claude Code Haiku and retries after errors.** Section auto-classification now calls `claude -p --model haiku` in an isolated subprocess from the temp directory instead of spawning hidden Antigravity helper threads. Threads whose classification fails or has no content yet are no longer permanently skipped on subsequent turns; only terminal assignments and unmatched decisions record a completed attempt.
+
 ## [0.3.14] - 2026-11-21
 
 ### Fixed
