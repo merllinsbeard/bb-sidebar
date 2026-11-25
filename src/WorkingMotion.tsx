@@ -54,9 +54,7 @@ export function WorkingRing({ motion }: { motion: WorkingMotion }) {
   return (
     <span aria-hidden="true" data-working-motion={motion} className="bb-sidebar-wm">
       {motion === "square-trace" ? (
-        <svg className="bb-sidebar-wm-trace" viewBox="0 0 23 23" aria-hidden="true">
-          <rect x="1" y="1" width="21" height="21" rx="6" pathLength="100" />
-        </svg>
+        <span className="bb-sidebar-wm-trace" />
       ) : motion === "satellite" ? (
         <>
           <span className="bb-sidebar-wm-satellite-track" />
