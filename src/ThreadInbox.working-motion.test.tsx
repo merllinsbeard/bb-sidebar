@@ -51,6 +51,8 @@ describe("working motion", () => {
       expect(busy.querySelector('[data-icon="Working"]')).toBeNull();
       expect(busy.querySelector(".bb-sidebar-working-pulse")).toBeNull();
       expect(within(busy).getByText("Working")).toBeDefined();
+      // The first minute reads "<1m", so the right side is never blank.
+      expect(within(busy).getByText("<1m")).toBeDefined();
       expect(ring(rowOf("Idle thread"))).toBeNull();
     },
   );

@@ -136,8 +136,8 @@ export function StatusOrTime({
               <StatusGlyph indicator={status.indicator} label={null} className="size-3.5" />
             </span>
           )}
-          {elapsed && elapsed !== "now" ? (
-            <span className="text-xs tabular-nums text-subtle-foreground">{elapsed}</span>
+          {elapsed ? (
+            <span className="text-xs tabular-nums text-subtle-foreground">{elapsed === "now" ? "<1m" : elapsed}</span>
           ) : null}
         </span>
         <span
