@@ -5,6 +5,7 @@ import {
   WORKING_MOTIONS,
   type ThreadDisplay,
   type WorkingMotion,
+  type WorkingMotionPlacement,
 } from "./sidebar-settings-values";
 import {
   InlineNumber,
@@ -24,6 +25,19 @@ const THREAD_DISPLAY_LABELS: Record<ThreadDisplay, string> = {
 function workingMotionLabel(motion: WorkingMotion): string {
   const { label, smooth } = WORKING_MOTION_STYLES[motion];
   return smooth ? `${label} (smooth)` : label;
+}
+
+const motionsAt = (placement: WorkingMotionPlacement) =>
+  WORKING_MOTIONS.filter((motion) => WORKING_MOTION_STYLES[motion].placement === placement);
+
+/** The select's groups, by where each style moves; Pulse stands alone. */
+const WORKING_MOTION_GROUPS = [
+  { label: "Around the icon", motions: motionsAt("icon") },
+  { label: "Instead of the status glyph", motions: motionsAt("status") },
+] as const;
+
+function WorkingMotionOption({ motion }: { motion: WorkingMotion }) {
+  return <option value={motion}>{workingMotionLabel(motion)}</option>;
 }
 
 export function SidebarLayoutSettings({
@@ -72,7 +86,7 @@ export function SidebarLayoutSettings({
       </SettingRow>
       <SettingRow
         title="Working animation"
-        description="How a working thread's row moves. Smooth styles redraw the window continuously while a thread works, which keeps the GPU busy; stepped styles change a few times a second, and Pulse is the lightest. Reduced motion holds every style still."
+        description="How a working thread's row moves. Around the icon: a ring circles the thread's agent icon while anything runs, and the status glyph holds still. Instead of the status glyph: the working glyph on the right animates while a turn runs. Pulse, the previous look, is the lightest. Smooth styles redraw the window continuously while a thread works, which keeps the GPU busy; stepped styles change a few times a second. Reduced motion holds every style still."
         control={
           <SettingsSelect
             aria-label="Working animation"
@@ -80,10 +94,15 @@ export function SidebarLayoutSettings({
             onChange={(event) => update("workingMotion", event.target.value as WorkingMotion)}
             className="w-52"
           >
-            {WORKING_MOTIONS.map((motion) => (
-              <option key={motion} value={motion}>
-                {workingMotionLabel(motion)}
-              </option>
+            {WORKING_MOTION_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.motions.map((motion) => (
+                  <WorkingMotionOption key={motion} motion={motion} />
+                ))}
+              </optgroup>
+            ))}
+            {motionsAt("pulse").map((motion) => (
+              <WorkingMotionOption key={motion} motion={motion} />
             ))}
           </SettingsSelect>
         }

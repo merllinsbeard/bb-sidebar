@@ -41,9 +41,11 @@ export type WorkingMotion = (typeof WORKING_MOTIONS)[number];
  * redraw the window on every frame while a thread works; the others change a
  * few times a second.
  */
+export type WorkingMotionPlacement = "icon" | "status" | "pulse";
+
 export const WORKING_MOTION_STYLES: Record<
   WorkingMotion,
-  { label: string; placement: "icon" | "status" | "pulse"; smooth: boolean }
+  { label: string; placement: WorkingMotionPlacement; smooth: boolean }
 > = {
   "square-trace": { label: "Square trace", placement: "icon", smooth: true },
   pulse: { label: "Pulse", placement: "pulse", smooth: false },
