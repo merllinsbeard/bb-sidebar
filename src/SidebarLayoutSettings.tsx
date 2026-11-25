@@ -1,5 +1,11 @@
 import { MAX_INACTIVE_AFTER_HOURS, MIN_INACTIVE_AFTER_HOURS } from "./inactive";
-import { THREAD_DISPLAYS, type ThreadDisplay } from "./sidebar-settings-values";
+import {
+  THREAD_DISPLAYS,
+  WORKING_MOTION_STYLES,
+  WORKING_MOTIONS,
+  type ThreadDisplay,
+  type WorkingMotion,
+} from "./sidebar-settings-values";
 import {
   InlineNumber,
   SettingRow,
@@ -14,6 +20,11 @@ const THREAD_DISPLAY_LABELS: Record<ThreadDisplay, string> = {
   "compact-working": "Compact working threads",
   "compact-all": "Compact all threads",
 };
+
+function workingMotionLabel(motion: WorkingMotion): string {
+  const { label, smooth } = WORKING_MOTION_STYLES[motion];
+  return smooth ? `${label} (smooth)` : label;
+}
 
 export function SidebarLayoutSettings({
   draft,
@@ -59,6 +70,24 @@ export function SidebarLayoutSettings({
           </div>
         ) : null}
       </SettingRow>
+      <SettingRow
+        title="Working animation"
+        description="How a working thread's row moves. Smooth styles redraw the window continuously while a thread works, which keeps the GPU busy; stepped styles change a few times a second, and Pulse is the lightest. Reduced motion holds every style still."
+        control={
+          <SettingsSelect
+            aria-label="Working animation"
+            value={draft.workingMotion}
+            onChange={(event) => update("workingMotion", event.target.value as WorkingMotion)}
+            className="w-52"
+          >
+            {WORKING_MOTIONS.map((motion) => (
+              <option key={motion} value={motion}>
+                {workingMotionLabel(motion)}
+              </option>
+            ))}
+          </SettingsSelect>
+        }
+      />
       <SwitchRow
         title="Hide project names in compact cards"
         description="Keep the project icon and hide its name on compact cards in Active, Pinned, and Working. Hover to see the project name."
