@@ -21,6 +21,16 @@
   pointer-events: none;
 }
 
+/*
+ * Room: a card leaves 4px between the icon box and a project stripe, and a
+ * child row 4px on each side (its 14px slot, 5px padding and gap), so no
+ * style reaches further than 3.5px past the box. Child rows draw the ring at
+ * 7/8 size, which keeps about 2px clear of the title and the indent rail.
+ */
+[data-child-thread-row] .bb-sidebar-wm {
+  transform: scale(0.875);
+}
+
 .bb-sidebar-wm > * {
   position: absolute;
   pointer-events: none;
@@ -75,8 +85,13 @@
   border-top-color: currentColor;
 }
 
+/* Double arc pulls its inner arc in, so the outer one fits the 3.5px of room. */
+[data-working-motion="double-arc"] > .bb-sidebar-wm-arc {
+  inset: -2px;
+}
+
 .bb-sidebar-wm-counter-arc {
-  inset: -5.5px;
+  inset: -3.5px;
   border-radius: 50%;
   border: 1px solid transparent;
   border-bottom-color: color-mix(in srgb, currentColor 55%, transparent);
@@ -111,7 +126,7 @@
 }
 
 .bb-sidebar-wm-satellite {
-  inset: -4px;
+  inset: -3.5px;
 }
 
 .bb-sidebar-wm-satellite::after {
@@ -119,12 +134,12 @@
   position: absolute;
   left: 50%;
   top: 0;
-  width: 4px;
-  height: 4px;
-  margin-left: -2px;
+  width: 3.5px;
+  height: 3.5px;
+  margin-left: -1.75px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 4px currentColor;
+  box-shadow: 0 0 2px currentColor;
 }
 
 /* Ring of dots: eight dots lit one after another. */
@@ -136,7 +151,7 @@
   margin: -1.2px;
   border-radius: 50%;
   background: currentColor;
-  transform: rotate(calc(var(--i) * 45deg)) translateY(-10.5px);
+  transform: rotate(calc(var(--i) * 45deg)) translateY(-10px);
 }
 
 /* Breathing halo: a ring with a soft glow. */
@@ -144,7 +159,7 @@
   inset: -3px;
   border-radius: 50%;
   border: 1.5px solid currentColor;
-  box-shadow: 0 0 6px color-mix(in srgb, currentColor 60%, transparent);
+  box-shadow: 0 0 2px color-mix(in srgb, currentColor 60%, transparent);
 }
 
 /* Status styles: small grids of cells on the right. */

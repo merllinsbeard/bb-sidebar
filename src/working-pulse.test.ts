@@ -3,7 +3,8 @@ import { cleanup, render } from "@testing-library/react";
 import { createElement, type AnimationEvent } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { StatusGlyph } from "./StatusGlyph";
-import { syncWorkingMotion } from "./WorkingMotion";
+import { syncWorkingMotion, WorkingMotionContext } from "./WorkingMotion";
+import type { WorkingMotion } from "./sidebar-settings-values";
 
 afterEach(cleanup);
 
@@ -38,5 +39,28 @@ describe("working pulse", () => {
     const target = { getAnimations: () => [pulse] } as unknown as HTMLElement;
     syncWorkingMotion({ animationName: "fade-in", currentTarget: target } as AnimationEvent<HTMLElement>);
     expect(pulse.startTime).toBe(1234);
+  });
+
+  it("shows the still working glyph where a status style has no room", () => {
+    const { container } = render(
+      createElement(
+        WorkingMotionContext.Provider,
+        { value: "matrix" satisfies WorkingMotion },
+        createElement(StatusGlyph, { indicator: "runtime", label: "Working", small: true }),
+      ),
+    );
+    expect(container.querySelector('svg[data-icon="Working"]')).not.toBeNull();
+    expect(container.querySelector("[data-working-motion]")).toBeNull();
+  });
+
+  it("names a status style for assistive tech when the glyph carries a label", () => {
+    const { getByRole } = render(
+      createElement(
+        WorkingMotionContext.Provider,
+        { value: "matrix" satisfies WorkingMotion },
+        createElement(StatusGlyph, { indicator: "runtime", label: "Working" }),
+      ),
+    );
+    expect(getByRole("img", { name: "Working" }).dataset.workingMotion).toBe("matrix");
   });
 });

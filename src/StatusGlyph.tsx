@@ -77,10 +77,17 @@ export function StatusGlyph({
   indicator,
   label,
   className,
+  small = false,
 }: {
   indicator: PluginSidebarThreadIndicator;
   label: string | null;
   className?: string;
+  /**
+   * A glyph smaller than the row's 14px, such as the hover card's 10px
+   * badge: a status style has no room there, so the working glyph holds
+   * still instead.
+   */
+  small?: boolean;
 }) {
   const shared = cn("size-3.5 shrink-0", className);
   const aria = label ?? undefined;
@@ -91,7 +98,7 @@ export function StatusGlyph({
     case "waiting-for-input":
       return <Icon name="CircleQuestion" aria-label={aria} className={cn(shared, statusToneClass(indicator))} />;
     case "runtime":
-      return <RuntimeGlyph label={aria} className={cn(shared, statusToneClass(indicator))} />;
+      return <RuntimeGlyph label={aria} className={cn(shared, statusToneClass(indicator))} small={small} />;
     case "workflow":
       return <ActivityIcon name="Workflow" label={aria} className={cn(shared, statusToneClass(indicator))} />;
     case "background-agent":
@@ -127,11 +134,13 @@ export function StatusGlyph({
  * The working glyph in the user's working style: the pulse, a status style in
  * its place, or held still while the row's icon carries the motion.
  */
-function RuntimeGlyph({ label, className }: { label: string | undefined; className: string }) {
+function RuntimeGlyph({ label, className, small }: { label: string | undefined; className: string; small: boolean }) {
   const motion = useWorkingMotion();
   const { placement } = WORKING_MOTION_STYLES[motion];
-  if (placement === "status") return <WorkingStatusMotion motion={motion} label={label} className={className} />;
   const glyph = <Icon name="Working" aria-label={label} className={className} />;
+  if (placement === "status") {
+    return small ? glyph : <WorkingStatusMotion motion={motion} label={label} className={className} />;
+  }
   if (placement === "icon") return glyph;
   return (
     <span className="bb-sidebar-working-pulse inline-flex shrink-0" onAnimationStart={syncWorkingMotion}>
