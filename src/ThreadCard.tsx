@@ -22,7 +22,14 @@ import { DRAG_LIFT_CLASS } from "./drag-preview";
 import { rowKeyshortcuts } from "./lib/keyshortcuts";
 import { RowContextMenu } from "./RowContextMenu";
 import { ProviderGlyph } from "./ProviderGlyph";
-import { limitSlotClass, STATUS_SLOT_CLASS, StatusOrTime, useStatusLimit, useWorkingForDisplay } from "./StatusSlot";
+import {
+  leadingIndicator,
+  limitSlotClass,
+  STATUS_SLOT_CLASS,
+  StatusOrTime,
+  useStatusLimit,
+  useWorkingForDisplay,
+} from "./StatusSlot";
 import { threadDisplayTitle } from "./inbox";
 import { InlineThreadTitle } from "./InlineThreadTitle";
 import { isWorkingTree } from "./working-tree";
@@ -323,7 +330,13 @@ export function ThreadCard({
                 ),
               }}
               beforeContent={isSettling ? <span aria-hidden="true" className="bb-sidebar-settle-sweep" /> : null}
-              leading={<ProviderGlyph providerId={thread.providerId} provider={provider} />}
+              leading={
+                <ProviderGlyph
+                  providerId={thread.providerId}
+                  provider={provider}
+                  indicator={leadingIndicator(thread)}
+                />
+              }
               fadeContent
               trailing={
                 <span className="pointer-events-none relative flex shrink-0 items-center gap-1">
@@ -410,7 +423,11 @@ export function ThreadCard({
               </ThreadDetailsTooltip>
               <div className="pointer-events-none relative flex min-h-5 min-w-0 items-center gap-2">
                 <span data-settle-fade="" className="flex shrink-0 items-center">
-                  <ProviderGlyph providerId={thread.providerId} provider={provider} />
+                  <ProviderGlyph
+                    providerId={thread.providerId}
+                    provider={provider}
+                    indicator={leadingIndicator(thread)}
+                  />
                 </span>
                 {titleLine}
                 {metadata.showOpenPortsInline ? <OpenPortsIndicator thread={thread} /> : null}

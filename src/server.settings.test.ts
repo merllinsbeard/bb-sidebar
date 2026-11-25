@@ -239,6 +239,7 @@ it("defaults missing and invalid JSON fields without losing valid settings", asy
       childSortField: "invalid",
       compactProjectIconOnly: "true",
       projectColorDisplay: "invalid",
+      workingMotion: "sparkle",
       removedSetting: true,
     }),
   );

@@ -151,7 +151,7 @@ export function ThreadDetailsTooltip({
             />
             {status.indicator !== "none" ? (
               <span className="absolute -bottom-1 -right-1 rounded-full bg-popover">
-                <StatusGlyph indicator={status.indicator} label={status.label} className="size-2.5" />
+                <StatusGlyph indicator={status.indicator} label={status.label} className="size-2.5" small />
               </span>
             ) : null}
           </span>
@@ -281,7 +281,7 @@ function SubthreadRow({ thread, onOpen }: { thread: PluginSidebarThread; onOpen:
           <span className="truncate">
             {provider?.displayName ?? thread.providerId} · {status.label}
           </span>
-          <StatusGlyph indicator={status.indicator} label={null} className="size-2.5" />
+          <StatusGlyph indicator={status.indicator} label={null} className="size-2.5" small />
         </span>
       </span>
     </a>

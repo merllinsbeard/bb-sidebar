@@ -1,5 +1,12 @@
 import { MAX_INACTIVE_AFTER_HOURS, MIN_INACTIVE_AFTER_HOURS } from "./inactive";
-import { THREAD_DISPLAYS, type ThreadDisplay } from "./sidebar-settings-values";
+import {
+  THREAD_DISPLAYS,
+  WORKING_MOTION_STYLES,
+  WORKING_MOTIONS,
+  type ThreadDisplay,
+  type WorkingMotion,
+  type WorkingMotionPlacement,
+} from "./sidebar-settings-values";
 import {
   InlineNumber,
   SettingRow,
@@ -14,6 +21,24 @@ const THREAD_DISPLAY_LABELS: Record<ThreadDisplay, string> = {
   "compact-working": "Compact working threads",
   "compact-all": "Compact all threads",
 };
+
+function workingMotionLabel(motion: WorkingMotion): string {
+  const { label, smooth } = WORKING_MOTION_STYLES[motion];
+  return smooth ? `${label} (smooth)` : label;
+}
+
+const motionsAt = (placement: WorkingMotionPlacement) =>
+  WORKING_MOTIONS.filter((motion) => WORKING_MOTION_STYLES[motion].placement === placement);
+
+/** The select's groups, by where each style moves; Pulse stands alone. */
+const WORKING_MOTION_GROUPS = [
+  { label: "Around the icon", motions: motionsAt("icon") },
+  { label: "Instead of the status glyph", motions: motionsAt("status") },
+] as const;
+
+function WorkingMotionOption({ motion }: { motion: WorkingMotion }) {
+  return <option value={motion}>{workingMotionLabel(motion)}</option>;
+}
 
 export function SidebarLayoutSettings({
   draft,
@@ -59,6 +84,29 @@ export function SidebarLayoutSettings({
           </div>
         ) : null}
       </SettingRow>
+      <SettingRow
+        title="Working animation"
+        description="How a working thread's row moves. Around the icon: a ring circles the thread's agent icon while anything runs, and the status glyph holds still. Instead of the status glyph: the working glyph on the right animates while a turn runs. Pulse, the previous look, is the lightest. Smooth styles redraw the window continuously while a thread works, which keeps the GPU busy; stepped styles change a few times a second. Reduced motion holds every style still."
+        control={
+          <SettingsSelect
+            aria-label="Working animation"
+            value={draft.workingMotion}
+            onChange={(event) => update("workingMotion", event.target.value as WorkingMotion)}
+            className="w-52"
+          >
+            {WORKING_MOTION_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.motions.map((motion) => (
+                  <WorkingMotionOption key={motion} motion={motion} />
+                ))}
+              </optgroup>
+            ))}
+            {motionsAt("pulse").map((motion) => (
+              <WorkingMotionOption key={motion} motion={motion} />
+            ))}
+          </SettingsSelect>
+        }
+      />
       <SwitchRow
         title="Hide project names in compact cards"
         description="Keep the project icon and hide its name on compact cards in Active, Pinned, and Working. Hover to see the project name."

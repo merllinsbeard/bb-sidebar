@@ -6,6 +6,7 @@ import {
   CHILD_THREAD_SORT_DIRECTIONS,
   CHILD_THREAD_ICON_STYLES,
   PROJECT_COLOR_DISPLAYS,
+  WORKING_MOTIONS,
   THREAD_DISPLAYS,
 } from "./sidebar-settings-values";
 import { configuredSnoozePresetError } from "./lifecycle";
@@ -198,6 +199,7 @@ export const sidebarSettingsSchema = z
     dockShelves: z.boolean(),
     projectColorsEnabled: z.boolean(),
     projectColorDisplay: z.enum(PROJECT_COLOR_DISPLAYS),
+    workingMotion: z.enum(WORKING_MOTIONS),
   })
   .strict();
 const uploadFilenameSchema = z

@@ -51,6 +51,14 @@ const ALLOWED: Record<string, { count: number; reason: string }> = {
     reason:
       "the working glyph's T3-style pulse: long holds and stepped ramps, synced, measured at 2-4 points of a core",
   },
+  // One per style: square trace, arc, comet, stepped arc, satellite, ring of
+  // dots, halo, double arc's counter arc, aurora, matrix, snake, thinking
+  // matrix, typing dots.
+  "src/working-motion.css": {
+    count: 13,
+    reason:
+      "owner-chosen working style, setting `workingMotion`; smooth ones redraw continuously, see setting description",
+  },
 };
 
 function withoutComments(source: string): string {
@@ -66,5 +74,12 @@ describe("motion", () => {
     }
     const expected = Object.fromEntries(Object.entries(ALLOWED).map(([path, { count }]) => [path, count]));
     expect(found).toEqual(expected);
+  });
+
+  it.each(["src/working-pulse.css", "src/working-motion.css"])("holds %s still under reduced motion", (file) => {
+    const css = withoutComments(readFileSync(join(ROOT, file), "utf8"));
+    const motionBlock = css.match(/@media \(prefers-reduced-motion: no-preference\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+    expect(motionBlock).toMatch(/\banimation:/);
+    expect(css.replace(motionBlock, "")).not.toMatch(/\banimation(?:-name)?:/);
   });
 });

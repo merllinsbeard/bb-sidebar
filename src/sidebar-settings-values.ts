@@ -16,6 +16,53 @@ export type ThreadDisplay = (typeof THREAD_DISPLAYS)[number];
 export const PROJECT_COLOR_DISPLAYS = ["all", "full", "grouped", "none"] as const;
 export type ProjectColorDisplay = (typeof PROJECT_COLOR_DISPLAYS)[number];
 
+export const WORKING_MOTIONS = [
+  "square-trace",
+  "pulse",
+  "arc",
+  "comet",
+  "arc-stepped",
+  "satellite",
+  "dots-ring",
+  "halo",
+  "double-arc",
+  "aurora",
+  "matrix",
+  "snake",
+  "matrix-random",
+  "dots",
+] as const;
+export type WorkingMotion = (typeof WORKING_MOTIONS)[number];
+
+/**
+ * How a working row moves. "icon" styles draw around the row's provider icon
+ * and hold the status glyph still; "status" styles replace the working glyph
+ * on the right; "pulse" is the boxed pulse on the right alone. Smooth styles
+ * redraw the window on every frame while a thread works; the others change a
+ * few times a second.
+ */
+export type WorkingMotionPlacement = "icon" | "status" | "pulse";
+
+export const WORKING_MOTION_STYLES: Record<
+  WorkingMotion,
+  { label: string; placement: WorkingMotionPlacement; smooth: boolean }
+> = {
+  "square-trace": { label: "Square trace", placement: "icon", smooth: true },
+  pulse: { label: "Pulse", placement: "pulse", smooth: false },
+  arc: { label: "Arc", placement: "icon", smooth: true },
+  comet: { label: "Comet", placement: "icon", smooth: true },
+  "arc-stepped": { label: "Stepped arc", placement: "icon", smooth: false },
+  satellite: { label: "Satellite", placement: "icon", smooth: false },
+  "dots-ring": { label: "Ring of dots", placement: "icon", smooth: false },
+  halo: { label: "Breathing halo", placement: "icon", smooth: false },
+  "double-arc": { label: "Double arc", placement: "icon", smooth: true },
+  aurora: { label: "Aurora ring", placement: "icon", smooth: true },
+  matrix: { label: "Matrix", placement: "status", smooth: false },
+  snake: { label: "Snake", placement: "status", smooth: false },
+  "matrix-random": { label: "Thinking matrix", placement: "status", smooth: false },
+  dots: { label: "Typing dots", placement: "status", smooth: false },
+};
+
 export interface ChildThreadSort {
   field: ChildThreadSortField;
   direction: ChildThreadSortDirection;
@@ -61,6 +108,8 @@ export interface SidebarSettingsValues {
   projectColorsEnabled: boolean;
   /** Where project stripes appear; enabled project names are always colored. */
   projectColorDisplay: ProjectColorDisplay;
+  /** How a working thread's row moves. */
+  workingMotion: WorkingMotion;
 }
 
 export const DEFAULT_SIDEBAR_SETTINGS: SidebarSettingsValues = {
@@ -88,6 +137,7 @@ export const DEFAULT_SIDEBAR_SETTINGS: SidebarSettingsValues = {
   dockShelves: true,
   projectColorsEnabled: true,
   projectColorDisplay: "none",
+  workingMotion: "square-trace",
 };
 
 export function childThreadSortOf(settings: SidebarSettingsValues | null): ChildThreadSort {
@@ -114,6 +164,10 @@ export function threadDisplayOf(value: { threadDisplay?: unknown; compactWorking
 
 export function projectColorDisplayOf(value: unknown): ProjectColorDisplay {
   return oneOf(PROJECT_COLOR_DISPLAYS, value, DEFAULT_SIDEBAR_SETTINGS.projectColorDisplay);
+}
+
+export function workingMotionOf(value: unknown): WorkingMotion {
+  return oneOf(WORKING_MOTIONS, value, DEFAULT_SIDEBAR_SETTINGS.workingMotion);
 }
 
 /**

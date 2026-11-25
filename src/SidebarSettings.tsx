@@ -50,6 +50,7 @@ const SECTION_BY_SETTING: Record<keyof SidebarSettingsValues, string> = {
   compactWorkingThreads: "Sidebar layout",
   workingShelf: "Sidebar layout",
   dockShelves: "Sidebar layout",
+  workingMotion: "Sidebar layout",
   projectColorsEnabled: "Project appearance",
   projectColorDisplay: "Project appearance",
 };

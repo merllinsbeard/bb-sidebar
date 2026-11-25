@@ -1,9 +1,10 @@
 import type { PluginSidebarThreadIndicator } from "@get-bb/plugin-sdk";
-import type { AnimationEvent } from "react";
 import { Icon } from "./components/Icon";
 import { unhandledIndicator } from "./child-status";
 import { StillThreadStatusGlyph } from "./StillThreadStatusGlyph";
 import { cn } from "./lib/utils";
+import { WORKING_MOTION_STYLES } from "./sidebar-settings-values";
+import { syncWorkingMotion, useWorkingMotion, WorkingStatusMotion } from "./WorkingMotion";
 import "./working-pulse.css";
 
 /** Status palette shared by cards, child labels, and glyphs. */
@@ -62,33 +63,31 @@ export function statusToneClass(indicator: PluginSidebarThreadIndicator): string
  * "Working · 5m" carry the rest, and a spinner never said whether an agent was
  * alive anyway. See get-bb/bb#7233.
  *
+ * That pulse is now one choice of the "Working animation" setting
+ * (`workingMotion`, WorkingMotion.tsx). The default draws around the row's
+ * provider icon instead and holds this glyph still; the setting's description
+ * names the cost of the smooth styles.
+ *
  * An indicator this sidebar has no shape for, such as a kind bb ships after
  * this build, is drawn with bb's own glyph, held still: bb adds kinds over
  * time, and users must not lose a status bb would show them.
  */
 
-/**
- * Pin a working pulse to the start of the document timeline, so every working
- * glyph, however late it mounted, is at the same point of the cycle and they
- * all change in the same frames.
- */
-export function syncWorkingPulse(event: AnimationEvent<HTMLElement>) {
-  if (event.animationName !== "bb-sidebar-working-pulse") return;
-  for (const animation of event.currentTarget.getAnimations()) {
-    if ("animationName" in animation && animation.animationName === "bb-sidebar-working-pulse") {
-      animation.startTime = 0;
-    }
-  }
-}
-
 export function StatusGlyph({
   indicator,
   label,
   className,
+  small = false,
 }: {
   indicator: PluginSidebarThreadIndicator;
   label: string | null;
   className?: string;
+  /**
+   * A glyph smaller than the row's 14px, such as the hover card's 10px
+   * badge: a status style has no room there, so the working glyph holds
+   * still instead.
+   */
+  small?: boolean;
 }) {
   const shared = cn("size-3.5 shrink-0", className);
   const aria = label ?? undefined;
@@ -99,11 +98,7 @@ export function StatusGlyph({
     case "waiting-for-input":
       return <Icon name="CircleQuestion" aria-label={aria} className={cn(shared, statusToneClass(indicator))} />;
     case "runtime":
-      return (
-        <span className="bb-sidebar-working-pulse inline-flex shrink-0" onAnimationStart={syncWorkingPulse}>
-          <Icon name="Working" aria-label={aria} className={cn(shared, statusToneClass(indicator))} />
-        </span>
-      );
+      return <RuntimeGlyph label={aria} className={cn(shared, statusToneClass(indicator))} small={small} />;
     case "workflow":
       return <ActivityIcon name="Workflow" label={aria} className={cn(shared, statusToneClass(indicator))} />;
     case "background-agent":
@@ -133,6 +128,25 @@ export function StatusGlyph({
     default:
       return <HostIndicatorGlyph indicator={unhandledIndicator(indicator)} label={aria} className={shared} />;
   }
+}
+
+/**
+ * The working glyph in the user's working style: the pulse, a status style in
+ * its place, or held still while the row's icon carries the motion.
+ */
+function RuntimeGlyph({ label, className, small }: { label: string | undefined; className: string; small: boolean }) {
+  const motion = useWorkingMotion();
+  const { placement } = WORKING_MOTION_STYLES[motion];
+  const glyph = <Icon name="Working" aria-label={label} className={className} />;
+  if (placement === "status") {
+    return small ? glyph : <WorkingStatusMotion motion={motion} label={label} className={className} />;
+  }
+  if (placement === "icon") return glyph;
+  return (
+    <span className="bb-sidebar-working-pulse inline-flex shrink-0" onAnimationStart={syncWorkingMotion}>
+      {glyph}
+    </span>
+  );
 }
 
 /**

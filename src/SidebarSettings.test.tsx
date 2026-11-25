@@ -320,3 +320,40 @@ it("offers archiving settled threads, off by default, with a validated day count
     ]),
   );
 });
+
+it("offers the working animations grouped by where they move and saves a choice", async () => {
+  let stored = { ...DEFAULT_SIDEBAR_SETTINGS };
+  const writes: Partial<SidebarSettingsValues>[] = [];
+  renderSlot(
+    { component: SidebarSettings },
+    {},
+    {
+      rpc: {
+        ...extraRpc,
+        getSidebarSettings: () => stored,
+        updateSidebarSettings: (input) => {
+          writes.push(input as Partial<SidebarSettingsValues>);
+          stored = { ...stored, ...(input as Partial<SidebarSettingsValues>) };
+          return stored;
+        },
+      },
+    },
+  );
+  const picker = (await screen.findByRole("combobox", { name: "Working animation" })) as HTMLSelectElement;
+  expect(picker.value).toBe("square-trace");
+  const groups = [...picker.querySelectorAll("optgroup")].map((group) => [
+    group.label,
+    [...group.querySelectorAll("option")].map((option) => option.value),
+  ]);
+  expect(groups).toEqual([
+    [
+      "Around the icon",
+      ["square-trace", "arc", "comet", "arc-stepped", "satellite", "dots-ring", "halo", "double-arc", "aurora"],
+    ],
+    ["Instead of the status glyph", ["matrix", "snake", "matrix-random", "dots"]],
+  ]);
+  expect(picker.querySelector(":scope > option")?.textContent).toBe("Pulse");
+  expect(picker.querySelector('option[value="square-trace"]')?.textContent).toBe("Square trace (smooth)");
+  fireEvent.change(picker, { target: { value: "matrix" } });
+  await waitFor(() => expect(writes).toEqual([{ workingMotion: "matrix" }]));
+});

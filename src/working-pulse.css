@@ -6,7 +6,7 @@
  * frames; on a 120 Hz Mac it measured 2-4 points of a core above a glyph that
  * never moves, where a spin cost a full core (see StatusGlyph). It animates
  * opacity on an HTML wrapper, which the compositor can run, never the SVG.
- * Every pulse is pinned to one timeline (syncWorkingPulse), so several working
+ * Every pulse is pinned to one timeline (syncWorkingMotion), so several working
  * rows change in the same frames instead of each adding its own. It holds
  * still under reduced motion.
  */

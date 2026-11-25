@@ -11,7 +11,7 @@ import {
 import type { PluginSidebarSection, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import type { useSidebarThreads } from "./bb-sdk";
 import type { SidebarProvider } from "./ProviderGlyph";
-import { DEFAULT_SIDEBAR_SETTINGS, type SidebarSettingsValues } from "./sidebar-settings";
+import { DEFAULT_SIDEBAR_SETTINGS, workingMotionOf, type SidebarSettingsValues } from "./sidebar-settings";
 import type { ConfiguredSnoozePreset } from "./lifecycle";
 import type { LifecycleApi } from "./useLifecycle";
 import type { ShelfExpansionState } from "./ThreadInboxView";
@@ -20,6 +20,7 @@ import { ProjectColorsProvider } from "./ProjectColors";
 import { WorkingSinceContext } from "./useWorkingSince";
 import type { WorkingSince } from "./working-since";
 import { ChildThreadDisplayContext, type ChildThreadDisplay } from "./ChildThreadDisplay";
+import { WorkingMotionContext } from "./WorkingMotion";
 import { OpenPortsProvider, type PortScanScope } from "./OpenPorts";
 import type { ActiveSortMode } from "./inbox-layout";
 import type { SectionFilter } from "./section-colors";
@@ -192,13 +193,15 @@ export function InboxProvider({
       >
         <WorkingSinceContext.Provider value={workingSince}>
           <ChildThreadDisplayContext.Provider value={childDisplay}>
-            <OpenPortsProvider scope={portScope}>
-              <InboxEnvironmentContext.Provider value={value.environment}>
-                <InboxActionsContext.Provider value={value.actions}>
-                  <InboxActivityContext.Provider value={value.activity}>{children}</InboxActivityContext.Provider>
-                </InboxActionsContext.Provider>
-              </InboxEnvironmentContext.Provider>
-            </OpenPortsProvider>
+            <WorkingMotionContext.Provider value={workingMotionOf(sidebarSettings?.workingMotion)}>
+              <OpenPortsProvider scope={portScope}>
+                <InboxEnvironmentContext.Provider value={value.environment}>
+                  <InboxActionsContext.Provider value={value.actions}>
+                    <InboxActivityContext.Provider value={value.activity}>{children}</InboxActivityContext.Provider>
+                  </InboxActionsContext.Provider>
+                </InboxEnvironmentContext.Provider>
+              </OpenPortsProvider>
+            </WorkingMotionContext.Provider>
           </ChildThreadDisplayContext.Provider>
         </WorkingSinceContext.Provider>
       </ProjectColorsProvider>
