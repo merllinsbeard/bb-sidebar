@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Working animation around the provider icon, with a choice of style.** While a thread works (running, a workflow, a background agent, plan mode or a background command), its row now draws a short segment running around the provider icon in the status colour, and the runtime glyph on the right holds still so only one thing moves per row. Settings → Sidebar layout → "Working animation" picks one of 14 styles: smooth ones around the icon (square trace, arc, comet, double arc, aurora), stepped ones around the icon (stepped arc, satellite, ring of dots, halo), stepped ones in place of the right glyph (matrix, snake, scattered matrix, dots), or "Pulse", the previous boxed pulse. Smooth styles redraw the window every frame while a thread works; stepped ones change a few times a second. Reduced motion holds every style still.
+
 ### Changed
 
 - **Clearer section hierarchy under Active and wider separation between top-level shelves.** Section groups inside Active now sit in an indented container with a subtle vertical guide, the unsorted Threads group shows a hollow dot aligned with named section dots so it reads as an unassigned area rather than a sibling shelf, and top-level shelves (Pinned, Active, Working, Inactive, Snoozed, Parked, Settled) have wider vertical spacing between them.
