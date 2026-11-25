@@ -20,6 +20,8 @@ import { useThreadLimit, useThreadRetry } from "./RateLimits";
 import { RateLimitRecovery } from "./RateLimitRecovery";
 import { limitTime } from "./rate-limit-labels";
 import type { QueuedRetry } from "./contract";
+import { WORKING_MOTION_STYLES } from "./sidebar-settings-values";
+import { useWorkingMotion } from "./WorkingMotion";
 
 /**
  * The default trailing slot for cards and flat rows: fixed and right-aligned.
@@ -73,12 +75,22 @@ export function limitSlotClass(part: "slot" | "actions", showParkActions: boolea
 export function StatusOrTime({
   thread: listedThread,
   now,
+  leadShowsWork = false,
 }: {
   thread: PluginSidebarThread;
   /** Quantized clock, shared by every row in one render. */
   now: number;
+  /**
+   * The row leads with a WorkingMark, which rings its icon while the row
+   * works. Under an icon style that ring already says "working", so the
+   * plain working glyph on the right is left out and only the time stays.
+   * Glyphs that name the kind of work (terminal, workflow, subagent, plan)
+   * still show: the ring does not say which.
+   */
+  leadShowsWork?: boolean;
 }) {
   const thread = useThreadWithDraft(listedThread);
+  const ringed = WORKING_MOTION_STYLES[useWorkingMotion()].placement === "icon" && leadShowsWork;
   const workingSince = useWorkingSinceContext();
   const rowStatus = useThreadRowStatus(listedThread);
   const retry = useThreadRetry(listedThread);
@@ -119,9 +131,11 @@ export function StatusOrTime({
           title={label}
           className={cn("inline-flex shrink-0 items-center gap-1 tabular-nums text-xs", status.className)}
         >
-          <span className="inline-flex size-4 shrink-0 items-center justify-center">
-            <StatusGlyph indicator={status.indicator} label={null} className="size-3.5" />
-          </span>
+          {ringed && status.indicator === "runtime" ? null : (
+            <span className="inline-flex size-4 shrink-0 items-center justify-center">
+              <StatusGlyph indicator={status.indicator} label={null} className="size-3.5" />
+            </span>
+          )}
           {elapsed && elapsed !== "now" ? (
             <span className="text-xs tabular-nums text-subtle-foreground">{elapsed}</span>
           ) : null}

@@ -36,8 +36,9 @@ export type WorkingMotion = (typeof WORKING_MOTIONS)[number];
 
 /**
  * How a working row moves. "icon" styles draw around the row's provider icon
- * and hold the status glyph still; "status" styles replace the working glyph
- * on the right; "pulse" is the boxed pulse on the right alone. Smooth styles
+ * and drop the plain working glyph on the right (a row without a ring, such
+ * as a slim row, keeps it, held still); "status" styles replace the working
+ * glyph on the right; "pulse" is the boxed pulse on the right alone. Smooth styles
  * redraw the window on every frame while a thread works; the others change a
  * few times a second.
  */

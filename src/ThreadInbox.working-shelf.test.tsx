@@ -249,8 +249,9 @@ describe("parking threads", () => {
       await waitFor(() => expect(card("Busy work").hasAttribute("data-compact-row")).toBe(compactWorkingThreads));
       expect(card("Asking work").hasAttribute("data-compact-row")).toBe(false);
       expect(card("Idle work").hasAttribute("data-compact-row")).toBe(false);
-      // Both full and compact working rows show the native working glyph and accessible label.
-      expect(card("Busy work").querySelector('[data-icon="Working"]')).not.toBeNull();
+      // Both full and compact working rows ring the icon in place of the working glyph, and keep the label.
+      expect(card("Busy work").querySelector(".bb-sidebar-wm[data-working-motion]")).not.toBeNull();
+      expect(card("Busy work").querySelector('[data-icon="Working"]')).toBeNull();
       expect(within(card("Busy work") as HTMLElement).getByText("Working")).toBeDefined();
     },
   );

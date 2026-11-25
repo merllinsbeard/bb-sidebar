@@ -444,7 +444,7 @@ function ChildThreadRow({
               // the cost is that the title's truncation point shifts with the
               // length of that row's status.
               <span className={cn(STATUS_SLOT_CLASS, "w-auto max-w-28 pr-2")}>
-                <StatusOrTime thread={thread} now={effectiveNow} />
+                <StatusOrTime thread={thread} now={effectiveNow} leadShowsWork />
               </span>
             ) : null}
           </RowAction>

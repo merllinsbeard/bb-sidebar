@@ -357,7 +357,7 @@ export function ThreadCard({
                     <>
                       {unpinButton}
                       {isWoke ? <WokeMarker onDismiss={onAcknowledgeWake} /> : null}
-                      <StatusOrTime thread={thread} now={now} />
+                      <StatusOrTime thread={thread} now={now} leadShowsWork />
                     </>
                   )}
                 </span>
@@ -440,7 +440,7 @@ export function ThreadCard({
                   <span className={cn(STATUS_SLOT_CLASS, "w-auto gap-1.5")}>
                     {unpinButton}
                     <WokeMarker onDismiss={onAcknowledgeWake} />
-                    <StatusOrTime thread={thread} now={now} />
+                    <StatusOrTime thread={thread} now={now} leadShowsWork />
                   </span>
                 ) : (
                   <span
@@ -468,7 +468,7 @@ export function ThreadCard({
                       )}
                     >
                       {!showParkActions ? unpinButton : null}
-                      <StatusOrTime thread={thread} now={now} />
+                      <StatusOrTime thread={thread} now={now} leadShowsWork />
                     </span>
                     {showParkActions ? (
                       <span
