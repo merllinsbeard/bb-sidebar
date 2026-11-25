@@ -65,8 +65,9 @@ export function statusToneClass(indicator: PluginSidebarThreadIndicator): string
  *
  * That pulse is now one choice of the "Working animation" setting
  * (`workingMotion`, WorkingMotion.tsx). The default draws around the row's
- * provider icon instead and holds this glyph still; the setting's description
- * names the cost of the smooth styles.
+ * provider icon instead; rows with that ring drop this glyph (StatusOrTime),
+ * and the rest hold it still. The setting's description names the cost of
+ * the smooth styles.
  *
  * An indicator this sidebar has no shape for, such as a kind bb ships after
  * this build, is drawn with bb's own glyph, held still: bb adds kinds over

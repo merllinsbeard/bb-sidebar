@@ -47,9 +47,10 @@ describe("working motion", () => {
       // The ring belongs to the provider icon's box, not to the status slot.
       expect(ring(busy)?.parentElement?.querySelector('[role="img"]')).not.toBeNull();
       expect(ring(busy)?.getAttribute("aria-hidden")).toBe("true");
-      // One thing moves per row: the working glyph on the right holds still.
-      expect(busy.querySelector('[data-icon="Working"]')).not.toBeNull();
+      // The ring is the row's one working mark: no working glyph on the right.
+      expect(busy.querySelector('[data-icon="Working"]')).toBeNull();
       expect(busy.querySelector(".bb-sidebar-working-pulse")).toBeNull();
+      expect(within(busy).getByText("Working")).toBeDefined();
       expect(ring(rowOf("Idle thread"))).toBeNull();
     },
   );
@@ -69,6 +70,27 @@ describe("working motion", () => {
       return found as HTMLElement;
     });
     expect(mark.className).toContain(`--bb-sidebar-tone-${tone})`);
+  });
+
+  it("keeps the glyph that names the work beside the ring", async () => {
+    renderInbox({}, [thread({ id: "busy", title: "Busy thread", indicator: "background-command" })]);
+    await screen.findByText("Busy thread");
+    const busy = rowOf("Busy thread");
+    await waitFor(() => expect(ring(busy)).not.toBeNull());
+    expect(busy.querySelector('[data-icon="Terminal"]')).not.toBeNull();
+  });
+
+  it("drops the working glyph of a ringed child row", async () => {
+    renderInbox({}, [
+      thread({ id: "parent", title: "Parent thread" }),
+      thread({ id: "child", title: "Child thread", parentThreadId: "parent", indicator: "runtime" }),
+    ]);
+    const children = await screen.findByRole("list", { name: "Child threads" });
+    const child = within(children)
+      .getByRole("link", { name: /Child thread/ })
+      .closest("li") as HTMLElement;
+    expect(ring(child)).not.toBeNull();
+    expect(child.querySelector('[data-icon="Working"]')).toBeNull();
   });
 
   it("shows no working ring on a row that needs the user", async () => {

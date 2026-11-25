@@ -86,7 +86,7 @@ export function SidebarLayoutSettings({
       </SettingRow>
       <SettingRow
         title="Working animation"
-        description="How a working thread's row moves. Around the icon: a ring circles the thread's agent icon while anything runs, and the status glyph holds still. Instead of the status glyph: the working glyph on the right animates while a turn runs. Pulse, the previous look, is the lightest. Smooth styles redraw the window continuously while a thread works, which keeps the GPU busy; stepped styles change a few times a second. Reduced motion holds every style still."
+        description="How a working thread's row moves. Around the icon: a ring circles the thread's agent icon while anything runs and takes the place of the working glyph on the right; glyphs that name the work, such as a running command, stay. Instead of the status glyph: the working glyph on the right animates while a turn runs. Pulse, the previous look, is the lightest. Smooth styles redraw the window continuously while a thread works, which keeps the GPU busy; stepped styles change a few times a second. Reduced motion holds every style still."
         control={
           <SettingsSelect
             aria-label="Working animation"
