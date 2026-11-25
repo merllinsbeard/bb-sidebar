@@ -50,13 +50,16 @@ export function ProviderGlyph({
 }
 
 /**
- * A row's leading mark in a 16px box. While the row works and the user's
- * working style draws around the icon, the box carries that ring, in the
- * status tone, outside the box so neither the icon nor the row moves.
+ * A row's leading mark. When the user's working style draws around the icon,
+ * the mark sits in a 16px box that, while the row works, carries that ring in
+ * the status tone, outside the box so neither the icon nor the row moves. The
+ * box stays on idle rows too, so a row does not remount when work starts.
+ * Other styles leave the mark as it was.
  */
 export function WorkingMark({ indicator, children }: { indicator: PluginSidebarThreadIndicator; children: ReactNode }) {
   const motion = useWorkingMotion();
-  const ring = isWorkingIndicator(indicator) && WORKING_MOTION_STYLES[motion].placement === "icon";
+  if (WORKING_MOTION_STYLES[motion].placement !== "icon") return <>{children}</>;
+  const ring = isWorkingIndicator(indicator);
   return (
     <span
       className={cn(

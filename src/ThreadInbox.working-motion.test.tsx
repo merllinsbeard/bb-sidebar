@@ -54,6 +54,30 @@ describe("working motion", () => {
     },
   );
 
+  it.each([
+    ["runtime", "working"],
+    ["workflow", "working"],
+    ["background-agent", "working"],
+    ["plan-mode", "working"],
+    ["background-command", "command"],
+  ] as const)("rings the icon of a row with %s, in the %s tone", async (indicator, tone) => {
+    renderInbox({}, [thread({ id: "busy", title: "Busy thread", indicator })]);
+    await screen.findByText("Busy thread");
+    const mark = await waitFor(() => {
+      const found = ring(rowOf("Busy thread"))?.parentElement;
+      expect(found).toBeDefined();
+      return found as HTMLElement;
+    });
+    expect(mark.className).toContain(`--bb-sidebar-tone-${tone})`);
+  });
+
+  it("shows no working ring on a row that needs the user", async () => {
+    renderInbox({}, [thread({ id: "busy", title: "Busy thread", indicator: "runtime", hasPendingInteraction: true })]);
+    await screen.findByText("Busy thread");
+    await waitFor(() => expect(within(rowOf("Busy thread")).getByText("Needs you")).toBeDefined());
+    expect(ring(rowOf("Busy thread"))).toBeNull();
+  });
+
   it("draws the ring around a working child row's icon", async () => {
     renderInbox({}, [
       thread({ id: "parent", title: "Parent thread" }),
@@ -72,6 +96,8 @@ describe("working motion", () => {
     const busy = rowOf("Busy thread");
     await waitFor(() => expect(busy.querySelector(".bb-sidebar-working-pulse [data-icon='Working']")).not.toBeNull());
     expect(document.querySelector("[data-working-motion]")).toBeNull();
+    // The provider icon sits straight in its slot, as before the setting existed.
+    expect(busy.querySelector('[data-settle-fade] > [role="img"]')).not.toBeNull();
   });
 
   it("replaces the working glyph on the right with a status style", async () => {

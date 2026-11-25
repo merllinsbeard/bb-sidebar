@@ -296,6 +296,15 @@ export function threadShortStatus(thread: PluginSidebarThread, retry: QueuedRetr
   return status;
 }
 
+/**
+ * The indicator a row's leading icon follows, ranked as the status slot ranks
+ * it: a pending question or a failed send outranks live work, so a row never
+ * shows a working ring beside "Needs you".
+ */
+export function leadingIndicator(thread: PluginSidebarThread): PluginSidebarThreadIndicator {
+  return threadShortStatus(thread)?.indicator ?? thread.indicator;
+}
+
 function shortStatusLabel(status: ShortStatus, startedAt: number | undefined, now: number): string {
   return status.showsDuration ? statusWithDuration(status.label, startedAt, now) : status.label;
 }
