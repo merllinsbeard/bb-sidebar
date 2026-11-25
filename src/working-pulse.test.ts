@@ -22,15 +22,21 @@ describe("working pulse", () => {
     expect(container.querySelector(".bb-sidebar-working-pulse")).toBeNull();
   });
 
-  it("pins every pulse to the start of the timeline so working rows change together", () => {
+  it("pins every working animation under the row to the start of the timeline so working rows change together", () => {
     const pulse = { animationName: "bb-sidebar-working-pulse", startTime: 1234 as number | null };
+    // The ring styles animate descendants and pseudo-elements of the element
+    // the event fires on; only a subtree read finds them.
+    const ring = { animationName: "bb-sidebar-working-spin", startTime: 567 as number | null };
     const other = { animationName: "something-else", startTime: 99 as number | null };
-    const target = { getAnimations: () => [pulse, other] } as unknown as HTMLElement;
+    const target = {
+      getAnimations: (options?: GetAnimationsOptions) => (options?.subtree ? [pulse, ring, other] : [pulse, other]),
+    } as unknown as HTMLElement;
     syncWorkingMotion({
       animationName: "bb-sidebar-working-pulse",
       currentTarget: target,
     } as AnimationEvent<HTMLElement>);
     expect(pulse.startTime).toBe(0);
+    expect(ring.startTime).toBe(0);
     expect(other.startTime).toBe(99);
   });
 

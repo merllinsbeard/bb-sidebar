@@ -32,12 +32,17 @@ const WORKING_ANIMATION = "bb-sidebar-working-";
 /**
  * Pin every working animation under the element to the start of the document
  * timeline, so every working row, however late it mounted, is at the same
- * point of its cycle and they all change in the same frames.
+ * point of its cycle and they all change in the same frames. Animations
+ * already pinned are left alone.
  */
 export function syncWorkingMotion(event: AnimationEvent<HTMLElement>) {
   if (!event.animationName.startsWith(WORKING_ANIMATION)) return;
   for (const animation of event.currentTarget.getAnimations({ subtree: true })) {
-    if ("animationName" in animation && String(animation.animationName).startsWith(WORKING_ANIMATION)) {
+    if (
+      "animationName" in animation &&
+      String(animation.animationName).startsWith(WORKING_ANIMATION) &&
+      animation.startTime !== 0
+    ) {
       animation.startTime = 0;
     }
   }

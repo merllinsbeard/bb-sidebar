@@ -226,9 +226,14 @@
     animation: bb-sidebar-working-spin 1.6s steps(12) infinite;
   }
 
+  /*
+   * Stepped cells start a whole cycle early, shifted by their order, so at
+   * the first frame each is already at its point of the chase. A positive
+   * delay would show every cell at full strength until its turn came.
+   */
   .bb-sidebar-wm-ring-dot {
     animation: bb-sidebar-working-step 1.6s steps(1) infinite;
-    animation-delay: calc(var(--i) * 0.2s);
+    animation-delay: calc(var(--i) * 0.2s - 1.6s);
   }
 
   .bb-sidebar-wm-halo {
@@ -249,12 +254,12 @@
 
   .bb-sidebar-wm-matrix > span:not([data-still]) {
     animation: bb-sidebar-working-step 1.6s steps(1) infinite;
-    animation-delay: calc(var(--i) * 0.2s);
+    animation-delay: calc(var(--i) * 0.2s - 1.6s);
   }
 
   .bb-sidebar-wm-snake > span {
     animation: bb-sidebar-working-step 0.8s steps(1) infinite;
-    animation-delay: calc(var(--i) * 0.2s);
+    animation-delay: calc(var(--i) * 0.2s - 0.8s);
   }
 
   .bb-sidebar-wm-matrix-random > span {
@@ -264,7 +269,7 @@
 
   .bb-sidebar-wm-dots > span {
     animation: bb-sidebar-working-type 1.2s steps(1) infinite;
-    animation-delay: calc(var(--i) * 0.2s);
+    animation-delay: calc(var(--i) * 0.2s - 1.2s);
   }
 }
 
