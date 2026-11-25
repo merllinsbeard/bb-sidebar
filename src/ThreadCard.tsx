@@ -323,7 +323,9 @@ export function ThreadCard({
                 ),
               }}
               beforeContent={isSettling ? <span aria-hidden="true" className="bb-sidebar-settle-sweep" /> : null}
-              leading={<ProviderGlyph providerId={thread.providerId} provider={provider} />}
+              leading={
+                <ProviderGlyph providerId={thread.providerId} provider={provider} indicator={thread.indicator} />
+              }
               fadeContent
               trailing={
                 <span className="pointer-events-none relative flex shrink-0 items-center gap-1">
@@ -410,7 +412,7 @@ export function ThreadCard({
               </ThreadDetailsTooltip>
               <div className="pointer-events-none relative flex min-h-5 min-w-0 items-center gap-2">
                 <span data-settle-fade="" className="flex shrink-0 items-center">
-                  <ProviderGlyph providerId={thread.providerId} provider={provider} />
+                  <ProviderGlyph providerId={thread.providerId} provider={provider} indicator={thread.indicator} />
                 </span>
                 {titleLine}
                 {metadata.showOpenPortsInline ? <OpenPortsIndicator thread={thread} /> : null}

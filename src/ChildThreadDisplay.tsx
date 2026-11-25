@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo } from "react";
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { Disc } from "./Disc";
-import { ProviderGlyph, type SidebarProvider } from "./ProviderGlyph";
+import { ProviderGlyph, WorkingMark, type SidebarProvider } from "./ProviderGlyph";
 import {
   childThreadSortOf,
   DEFAULT_SIDEBAR_SETTINGS,
@@ -58,7 +58,17 @@ export function compareChildThreads(
 export function ChildThreadIcon({ thread, discClassName }: { thread: PluginSidebarThread; discClassName?: string }) {
   const { iconStyle, providerById } = useChildThreadDisplay();
   if (iconStyle === "provider") {
-    return <ProviderGlyph providerId={thread.providerId} provider={providerById.get(thread.providerId) ?? null} />;
+    return (
+      <ProviderGlyph
+        providerId={thread.providerId}
+        provider={providerById.get(thread.providerId) ?? null}
+        indicator={thread.indicator}
+      />
+    );
   }
-  return <Disc thread={thread} className={discClassName} />;
+  return (
+    <WorkingMark indicator={thread.indicator}>
+      <Disc thread={thread} className={discClassName} />
+    </WorkingMark>
+  );
 }

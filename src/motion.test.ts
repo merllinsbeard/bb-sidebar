@@ -51,6 +51,14 @@ const ALLOWED: Record<string, { count: number; reason: string }> = {
     reason:
       "the working glyph's T3-style pulse: long holds and stepped ramps, synced, measured at 2-4 points of a core",
   },
+  // One per style: square trace, arc, comet, stepped arc, satellite, ring of
+  // dots, halo, double arc's counter arc, aurora, matrix, snake, thinking
+  // matrix, typing dots.
+  "src/working-motion.css": {
+    count: 13,
+    reason:
+      "owner-chosen working style, setting `workingMotion`; smooth ones redraw continuously, see setting description",
+  },
 };
 
 function withoutComments(source: string): string {

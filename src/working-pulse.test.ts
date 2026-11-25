@@ -2,7 +2,8 @@
 import { cleanup, render } from "@testing-library/react";
 import { createElement, type AnimationEvent } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { StatusGlyph, syncWorkingPulse } from "./StatusGlyph";
+import { StatusGlyph } from "./StatusGlyph";
+import { syncWorkingMotion } from "./WorkingMotion";
 
 afterEach(cleanup);
 
@@ -24,7 +25,7 @@ describe("working pulse", () => {
     const pulse = { animationName: "bb-sidebar-working-pulse", startTime: 1234 as number | null };
     const other = { animationName: "something-else", startTime: 99 as number | null };
     const target = { getAnimations: () => [pulse, other] } as unknown as HTMLElement;
-    syncWorkingPulse({
+    syncWorkingMotion({
       animationName: "bb-sidebar-working-pulse",
       currentTarget: target,
     } as AnimationEvent<HTMLElement>);
@@ -35,7 +36,7 @@ describe("working pulse", () => {
   it("ignores other animations starting on the wrapper", () => {
     const pulse = { animationName: "bb-sidebar-working-pulse", startTime: 1234 as number | null };
     const target = { getAnimations: () => [pulse] } as unknown as HTMLElement;
-    syncWorkingPulse({ animationName: "fade-in", currentTarget: target } as AnimationEvent<HTMLElement>);
+    syncWorkingMotion({ animationName: "fade-in", currentTarget: target } as AnimationEvent<HTMLElement>);
     expect(pulse.startTime).toBe(1234);
   });
 });

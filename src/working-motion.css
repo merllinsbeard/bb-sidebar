@@ -1,0 +1,306 @@
+/*
+ * Working styles the user picks in Settings (setting `workingMotion`). Icon
+ * styles draw around the row's 16px provider icon box (.bb-sidebar-wm, a
+ * child of that box); status styles replace the working glyph on the right.
+ * Everything takes the status tone from currentColor, sits outside layout and
+ * never takes a click.
+ *
+ * Cost: in Chromium any running animation redraws the window. The smooth
+ * styles (square trace, arc, comet, double arc, aurora) redraw it on every
+ * frame while a thread works; the stepped ones change a few times a second,
+ * and the pulse (working-pulse.css) holds still most of the time. Settings
+ * says so next to the choice. Every working animation is pinned to one
+ * timeline (syncWorkingMotion), so several working rows change in the same
+ * frames. Under reduced motion each holds still on a frame that still reads
+ * as working.
+ */
+
+.bb-sidebar-wm {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bb-sidebar-wm > * {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Square trace: a short stroke running around a rounded square. */
+.bb-sidebar-wm-trace {
+  inset: -3.5px;
+  width: 23px;
+  height: 23px;
+  overflow: visible;
+}
+
+.bb-sidebar-wm-trace rect {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 22 78;
+}
+
+/* Arc, stepped arc and double arc: a coloured quarter of a circle. */
+.bb-sidebar-wm-arc,
+.bb-sidebar-wm-arc-stepped {
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: currentColor;
+}
+
+.bb-sidebar-wm-arc {
+  border-right-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+
+.bb-sidebar-wm-arc-stepped {
+  border-color: color-mix(in srgb, currentColor 15%, transparent);
+  border-top-color: currentColor;
+}
+
+.bb-sidebar-wm-counter-arc {
+  inset: -5.5px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-bottom-color: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+/* Comet and aurora: a conic gradient cut to a thin ring. */
+.bb-sidebar-wm-comet,
+.bb-sidebar-wm-aurora {
+  inset: -3.5px;
+  border-radius: 50%;
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.6px));
+}
+
+.bb-sidebar-wm-comet {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 55%,
+    color-mix(in srgb, currentColor 30%, transparent) 75%,
+    currentColor
+  );
+}
+
+.bb-sidebar-wm-aurora {
+  background: conic-gradient(#0ea5e9, #8b5cf6, #ec4899, #f59e0b, #0ea5e9);
+}
+
+/* Satellite: a dot circling a faint track. */
+.bb-sidebar-wm-satellite-track {
+  inset: -2.5px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.bb-sidebar-wm-satellite {
+  inset: -4px;
+}
+
+.bb-sidebar-wm-satellite::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 4px currentColor;
+}
+
+/* Ring of dots: eight dots lit one after another. */
+.bb-sidebar-wm-ring-dot {
+  left: 50%;
+  top: 50%;
+  width: 2.4px;
+  height: 2.4px;
+  margin: -1.2px;
+  border-radius: 50%;
+  background: currentColor;
+  transform: rotate(calc(var(--i) * 45deg)) translateY(-10.5px);
+}
+
+/* Breathing halo: a ring with a soft glow. */
+.bb-sidebar-wm-halo {
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  box-shadow: 0 0 6px color-mix(in srgb, currentColor 60%, transparent);
+}
+
+/* Status styles: small grids of cells on the right. */
+.bb-sidebar-wm-cells {
+  display: grid;
+  gap: 1.3px;
+}
+
+.bb-sidebar-wm-cells > span {
+  width: 3px;
+  height: 3px;
+  border-radius: 0.8px;
+  background: currentColor;
+}
+
+.bb-sidebar-wm-cells > span[data-still] {
+  opacity: 0.5;
+}
+
+.bb-sidebar-wm-matrix,
+.bb-sidebar-wm-matrix-random {
+  grid-template-columns: repeat(3, 3px);
+}
+
+.bb-sidebar-wm-snake {
+  grid-template-columns: repeat(2, 3.5px);
+}
+
+.bb-sidebar-wm-snake > span {
+  width: 3.5px;
+  height: 3.5px;
+}
+
+.bb-sidebar-wm-dots {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.bb-sidebar-wm-dots > span {
+  width: 2.6px;
+  height: 2.6px;
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-sidebar-wm-trace rect {
+    animation: bb-sidebar-working-dash 1.8s linear infinite;
+  }
+
+  .bb-sidebar-wm-arc {
+    animation: bb-sidebar-working-spin 1.6s linear infinite;
+  }
+
+  .bb-sidebar-wm-comet {
+    animation: bb-sidebar-working-spin 1.3s linear infinite;
+  }
+
+  .bb-sidebar-wm-arc-stepped {
+    animation: bb-sidebar-working-spin 1.2s steps(8) infinite;
+  }
+
+  .bb-sidebar-wm-satellite {
+    animation: bb-sidebar-working-spin 1.6s steps(12) infinite;
+  }
+
+  .bb-sidebar-wm-ring-dot {
+    animation: bb-sidebar-working-step 1.6s steps(1) infinite;
+    animation-delay: calc(var(--i) * 0.2s);
+  }
+
+  .bb-sidebar-wm-halo {
+    animation: bb-sidebar-working-breathe 2s infinite;
+  }
+
+  [data-working-motion="double-arc"] > .bb-sidebar-wm-arc {
+    animation-duration: 1.4s;
+  }
+
+  .bb-sidebar-wm-counter-arc {
+    animation: bb-sidebar-working-spin-back 2.2s linear infinite;
+  }
+
+  .bb-sidebar-wm-aurora {
+    animation: bb-sidebar-working-spin 2.4s linear infinite;
+  }
+
+  .bb-sidebar-wm-matrix > span:not([data-still]) {
+    animation: bb-sidebar-working-step 1.6s steps(1) infinite;
+    animation-delay: calc(var(--i) * 0.2s);
+  }
+
+  .bb-sidebar-wm-snake > span {
+    animation: bb-sidebar-working-step 0.8s steps(1) infinite;
+    animation-delay: calc(var(--i) * 0.2s);
+  }
+
+  .bb-sidebar-wm-matrix-random > span {
+    animation: bb-sidebar-working-rain 1.2s steps(1) infinite;
+    animation-delay: calc(var(--i) * -0.37s);
+  }
+
+  .bb-sidebar-wm-dots > span {
+    animation: bb-sidebar-working-type 1.2s steps(1) infinite;
+    animation-delay: calc(var(--i) * 0.2s);
+  }
+}
+
+@keyframes bb-sidebar-working-dash {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes bb-sidebar-working-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bb-sidebar-working-spin-back {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes bb-sidebar-working-step {
+  0%,
+  25% {
+    opacity: 1;
+  }
+  26%,
+  100% {
+    opacity: 0.18;
+  }
+}
+
+@keyframes bb-sidebar-working-rain {
+  0%,
+  30% {
+    opacity: 1;
+  }
+  31%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes bb-sidebar-working-type {
+  0%,
+  33% {
+    opacity: 1;
+  }
+  34%,
+  100% {
+    opacity: 0.18;
+  }
+}
+
+@keyframes bb-sidebar-working-breathe {
+  0%,
+  40% {
+    opacity: 1;
+    animation-timing-function: steps(6);
+  }
+  50%,
+  90% {
+    opacity: 0.25;
+    animation-timing-function: steps(6);
+  }
+  100% {
+    opacity: 1;
+  }
+}

@@ -126,6 +126,7 @@ export const SlimRow = memo(function SlimRow({
             <ProviderGlyph
               providerId={thread.providerId}
               provider={provider}
+              indicator={thread.indicator}
               className={cn(!isActive && "opacity-75 group-hover/slim:opacity-100")}
             />
           }

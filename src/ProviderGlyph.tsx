@@ -1,6 +1,10 @@
+import type { PluginSidebarThreadIndicator } from "@get-bb/plugin-sdk";
+import type { ReactNode } from "react";
 import { ProviderIcon, type useProviders } from "./bb-sdk";
-
 import { cn } from "./lib/utils";
+import { WORKING_MOTION_STYLES } from "./sidebar-settings-values";
+import { statusToneClass } from "./StatusGlyph";
+import { isWorkingIndicator, syncWorkingMotion, useWorkingMotion, WorkingRing } from "./WorkingMotion";
 
 export type SidebarProvider = ReturnType<typeof useProviders>["providers"][number];
 
@@ -10,18 +14,23 @@ export type SidebarProvider = ReturnType<typeof useProviders>["providers"][numbe
  * Leads a thread row (matching bb's native sidebar) or compact/child rows.
  * bb draws a known provider's artwork, with its theme tint. A provider
  * missing from the current directory gets a neutral dot.
+ *
+ * Given the row's `indicator`, it also carries the row's working motion.
  */
 export function ProviderGlyph({
   providerId,
   provider,
+  indicator,
   className,
 }: {
   providerId: string;
   provider: SidebarProvider | null;
+  /** The row's indicator; leave it out where the glyph is not a row's lead. */
+  indicator?: PluginSidebarThreadIndicator;
   className?: string;
 }) {
   const label = provider?.displayName ?? providerId;
-  return (
+  const glyph = (
     <span
       role="img"
       aria-label={label}
@@ -35,6 +44,29 @@ export function ProviderGlyph({
       ) : (
         <span className="size-2 rounded-full bg-muted-foreground/50" />
       )}
+    </span>
+  );
+  return indicator === undefined ? glyph : <WorkingMark indicator={indicator}>{glyph}</WorkingMark>;
+}
+
+/**
+ * A row's leading mark in a 16px box. While the row works and the user's
+ * working style draws around the icon, the box carries that ring, in the
+ * status tone, outside the box so neither the icon nor the row moves.
+ */
+export function WorkingMark({ indicator, children }: { indicator: PluginSidebarThreadIndicator; children: ReactNode }) {
+  const motion = useWorkingMotion();
+  const ring = isWorkingIndicator(indicator) && WORKING_MOTION_STYLES[motion].placement === "icon";
+  return (
+    <span
+      className={cn(
+        "relative inline-flex size-4 shrink-0 items-center justify-center",
+        ring && statusToneClass(indicator),
+      )}
+      onAnimationStart={ring ? syncWorkingMotion : undefined}
+    >
+      {children}
+      {ring ? <WorkingRing motion={motion} /> : null}
     </span>
   );
 }
