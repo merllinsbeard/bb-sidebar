@@ -75,4 +75,11 @@ describe("motion", () => {
     const expected = Object.fromEntries(Object.entries(ALLOWED).map(([path, { count }]) => [path, count]));
     expect(found).toEqual(expected);
   });
+
+  it.each(["src/working-pulse.css", "src/working-motion.css"])("holds %s still under reduced motion", (file) => {
+    const css = withoutComments(readFileSync(join(ROOT, file), "utf8"));
+    const motionBlock = css.match(/@media \(prefers-reduced-motion: no-preference\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+    expect(motionBlock).toMatch(/\banimation:/);
+    expect(css.replace(motionBlock, "")).not.toMatch(/\banimation(?:-name)?:/);
+  });
 });
