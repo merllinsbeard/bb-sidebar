@@ -4,6 +4,7 @@ import {
   DEFAULT_SIDEBAR_SETTINGS,
   projectColorDisplayOf,
   threadDisplayOf,
+  workingMotionOf,
   type SidebarSettingsValues,
 } from "../sidebar-settings-values";
 
@@ -72,6 +73,7 @@ export function decodeSettingsCache(input: unknown): SidebarSettingsValues | nul
     dockShelves: filled.dockShelves === true,
     projectColorsEnabled: filled.projectColorsEnabled === true,
     projectColorDisplay: projectColorDisplayOf(filled.projectColorDisplay),
+    workingMotion: workingMotionOf(value.workingMotion),
   } as SidebarSettingsValues);
 }
 
