@@ -6,6 +6,7 @@ import "./src/theme.css";
 import { ThreadInbox } from "./src/ThreadInbox";
 import { SidebarSettings } from "./src/SidebarSettings";
 import { registerSnoozeCommands } from "./src/lib/snooze-commands";
+import { registerNewThreadCommand } from "./src/lib/new-thread-command";
 
 export default definePluginApp((app) => {
   app.slots.settingsSection({
@@ -23,4 +24,5 @@ export default definePluginApp((app) => {
   // Palette commands act on the thread in view, so a thread can be snoozed
   // without finding its row.
   registerSnoozeCommands(app.commands);
+  registerNewThreadCommand(app.commands);
 });

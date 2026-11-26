@@ -4,4 +4,5 @@ export const BROWSER_EVENTS = {
   threadHoverCardOpened: "bb-sidebar:thread-hover-card-opened",
   portsClosed: "bb-sidebar:ports-closed",
   snoozeCommand: "bb-sidebar:snooze-command",
+  newThreadCommand: "bb-sidebar:new-thread-command",
 } as const;
