@@ -28,6 +28,7 @@ import { useChildThreadDisplayValue } from "./ChildThreadDisplay";
 import { useLifecycle } from "./useLifecycle";
 import { useLifecycleRows, type LifecycleRows } from "./useLifecycleRows";
 import { useLiveThreads } from "./useLiveThreads";
+import { useNewThreadCommand } from "./useNewThreadCommand";
 import type { PortScanScope } from "./OpenPorts";
 import type { createDragPreview } from "./drag-preview";
 import { usePinnedReorder } from "./usePinnedReorder";
@@ -113,6 +114,7 @@ function ThreadInboxContent({
   const { sectionById, sectionColorById, sectionFilter, setSectionFilter } = useSectionFilter({ sections, status });
   const now = useQuantizedNow();
   const projectNameById = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
+  useNewThreadCommand(projects);
   const personalProjectIds = useMemo(
     () => new Set(projects.filter((project) => project.isPersonal).map((project) => project.id)),
     [projects],
